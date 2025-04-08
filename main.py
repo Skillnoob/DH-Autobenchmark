@@ -121,7 +121,7 @@ def run_benchmark(seed: int, cmd: list) -> list:
 
     send_command(server_process, "dh config common.threadPreset I_PAID_FOR_THE_WHOLE_CPU")
     time.sleep(1)
-    send_command(server_process, "dh pregen start minecraft:overworld 0 0 64")
+    send_command(server_process, "dh pregen start minecraft:overworld 0 0 128")
 
     # Track pre-generation time
     benchmark_start = None
