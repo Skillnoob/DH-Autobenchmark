@@ -1,5 +1,8 @@
+import datetime
 import os
+import shutil
 import subprocess
+import time
 
 import requests
 
@@ -43,21 +46,68 @@ def download_dh():
         f.write(response.content)
 
 
-def accept_eula():
-    eula_file = 'server/eula.txt'
-    with open(eula_file, 'r') as file:
+def replace_line(file_path, line_to_replace, new_line):
+    with open(file_path, 'r') as file:
         lines = file.readlines()
 
-    with open(eula_file, 'w') as file:
+    with open(file_path, 'w') as file:
         for line in lines:
-            if line.startswith('eula='):
-                file.write('eula=true\n')
+            if line.startswith(line_to_replace):
+                file.write(f'{new_line}\n')
             else:
                 file.write(line)
 
 
+def send_command(server_process, command):
+    server_process.stdin.write(command + "\n")
+    server_process.stdin.flush()
+
+
 def run_benchmark(seed, cmd):
-    pass
+    world_path = "server/world/"
+    if os.path.exists(world_path):
+        shutil.rmtree(world_path)
+
+    replace_line('server/server.properties', 'level-seed=', f'level-seed={seed}')
+
+    server_process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, cwd='server')
+
+    for line in server_process.stdout:
+        print(line, end='')
+
+        if "Done" in line:
+            break
+
+    time.sleep(5)
+
+    send_command(server_process, 'dh config common.threadPreset I_PAID_FOR_THE_WHOLE_CPU')
+    time.sleep(1)
+    send_command(server_process, 'dh pregen start minecraft:overworld 0 0 64')
+
+    begin_time = 0
+    elapsed_time = 0
+    for line in server_process.stdout:
+        print(line, end='')
+
+        if "Starting pregen" in line:
+            print("Pregen started.")
+            begin_time = time.perf_counter()
+
+        if "Pregen is complete" in line:
+            elapsed_time = str(datetime.timedelta(seconds=round(time.perf_counter() - begin_time, 2))).split('.')[0]
+            print("Pregen completed, shutting down server.")
+            break
+
+    time.sleep(1)
+    send_command(server_process, 'stop')
+
+    # wait until the server stops
+    server_process.wait()
+
+    # get file size of server/world/data/DistantHorizons.sqlite
+    db_size = os.path.getsize("server/world/data/DistantHorizons.sqlite")
+
+    return [elapsed_time, db_size]
 
 
 def main():
@@ -67,13 +117,16 @@ def main():
     if download_fabric():
         print("Fabric downloaded successfully, starting the server once and accepting EULA.")
         subprocess.run(cmd, cwd="server")
-        accept_eula()
+        replace_line("server/eula.txt", "eula=", "eula=true")
 
     download_dh()
 
     seed_set = [5057296280818819649, 2412466893128258733, 3777092783861568240, -8505774097130463405, 4753729061374190018]
 
     results = [run_benchmark(seed, cmd) for seed in seed_set]
+
+    for i, (elapsed_time, db_size) in enumerate(results):
+        print(f"Seed {seed_set[i]}: Elapsed Time: {elapsed_time}, Database Size: {db_size / (1024 * 1024):.2f} MB")
 
 
 if __name__ == "__main__":
