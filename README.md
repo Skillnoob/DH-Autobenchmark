@@ -1,6 +1,6 @@
 # Distant Horizons Benchmark Tool
 
-This project is a benchmarking tool for running Minecraft server benchmarks with specific configurations.
+This project is a tool mainly meant to automate benchmarking Distant Horizons on different configurations.
 
 ## Requirements
 
