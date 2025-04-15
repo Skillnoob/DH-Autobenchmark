@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class Main {
     private static final String SERVER_DIR = "server";
@@ -23,8 +24,13 @@ public class Main {
 
     private static BenchmarkConfig benchmarkConfig;
 
+    private static volatile Process currentProcess = null;
+
     public static void main(String[] args) {
         try {
+            // Shutdown hook to close any open server
+            Runtime.getRuntime().addShutdownHook(new Thread(Main::cleanupProcess));
+
             benchmarkConfig = FileManager.loadBenchmarkConfig();
 
             System.out.println("Loaded configuration:");
@@ -45,6 +51,7 @@ public class Main {
                 pb.directory(new File(SERVER_DIR));
                 pb.redirectErrorStream(true);
                 Process process = pb.start();
+                currentProcess = process;
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
@@ -52,6 +59,7 @@ public class Main {
                     }
                 }
                 process.waitFor();
+                currentProcess = null;
 
                 FileManager.updateConfigLine(Paths.get(SERVER_DIR, EULA_FILE), "eula", "eula=true");
                 FileManager.updateConfigLine(Paths.get(SERVER_DIR, SERVER_PROPERTIES_FILE), "white-list", "white-list=true");
@@ -98,6 +106,7 @@ public class Main {
         pb.directory(new File(SERVER_DIR));
         pb.redirectErrorStream(true);
         Process process = pb.start();
+        currentProcess = process;
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
         String line;
@@ -141,13 +150,33 @@ public class Main {
                 processWriter.println("stop");
             }
         }
+        currentProcess = null;
 
-        Thread.sleep(5000);
-
-        // Get the file size of the Distant Horizons database.
         Path dhDbPath = Paths.get(DH_DB_FILE);
-        double dbSize = Files.exists(dhDbPath) ? Files.size(dhDbPath) / (1024.0 * 1024.0) : 0;
+        double dbSize = Files.exists(dhDbPath) ? Files.size(dhDbPath) / (1024.0 * 1024.0) : 0; // Get DB Size and convert to MB
         return new BenchmarkResult(elapsedTimeStr, dbSize);
+    }
+
+    private static void cleanupProcess() {
+        if (currentProcess != null && currentProcess.isAlive()) {
+            try {
+                System.out.println("Shutdown hook triggered, terminating server process...");
+
+                currentProcess.destroy();
+
+                boolean terminated = currentProcess.waitFor(5, TimeUnit.SECONDS);
+
+                if (!terminated) {
+                    currentProcess.destroyForcibly();
+                }
+
+                System.out.println("Server process terminated.");
+            } catch (Exception e) {
+                System.err.println("Error during process cleanup: " + e.getMessage());
+            } finally {
+                currentProcess = null;
+            }
+        }
     }
 
     private static String formatDuration(long millis) {
