@@ -9,6 +9,10 @@ repositories {
     mavenCentral()
 }
 
+configurations {
+    jarLibs
+}
+
 dependencies {
     implementation 'com.electronwill.night-config:toml:3.8.1'
 }
@@ -16,5 +20,16 @@ dependencies {
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'com.skillnoob.dh.benchmark.Main'
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
 }
