@@ -1,7 +1,6 @@
 package com.skillnoob.dh.benchmark;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -9,7 +8,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Main {
     private static final String SERVER_DIR = "server";
@@ -23,14 +24,10 @@ public class Main {
     private static final String DH_DB_FILE = Paths.get(DATA_DIR, "DistantHorizons.sqlite").toString();
 
     private static BenchmarkConfig benchmarkConfig;
-
-    private static volatile Process currentProcess = null;
+    private static ServerManager serverManager;
 
     public static void main(String[] args) {
         try {
-            // Shutdown hook to close any open server
-            Runtime.getRuntime().addShutdownHook(new Thread(Main::cleanupProcess));
-
             benchmarkConfig = FileManager.loadBenchmarkConfig();
 
             System.out.println("Loaded configuration:");
@@ -41,25 +38,15 @@ public class Main {
             System.out.println("Fabric Download URL: " + benchmarkConfig.fabricDownloadUrl());
             System.out.println("Distant Horizons Download URL: " + benchmarkConfig.dhDownloadUrl());
 
-            List<String> serverCmd = List.of("java", "-Xmx" + benchmarkConfig.ramGb() + "G", "-jar", FABRIC_JAR, "nogui");
+            serverManager = new ServerManager(benchmarkConfig);
+            List<String> serverCmd = serverManager.getServerStartCommand();
 
             // If fabric isn't downloaded, download it and run once to accept the EULA and enable white-list.
             if (DownloadManager.downloadFile(benchmarkConfig.fabricDownloadUrl(), SERVER_DIR, FABRIC_JAR)) {
                 System.out.println("Fabric downloaded successfully. Starting the server once to accept the EULA.");
 
-                ProcessBuilder pb = new ProcessBuilder(serverCmd);
-                pb.directory(new File(SERVER_DIR));
-                pb.redirectErrorStream(true);
-                Process process = pb.start();
-                currentProcess = process;
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        System.out.println(line);
-                    }
-                }
-                process.waitFor();
-                currentProcess = null;
+                serverManager.startServer(serverCmd);
+                serverManager.stopServer();
 
                 FileManager.updateConfigLine(Paths.get(SERVER_DIR, EULA_FILE), "eula", "eula=true");
                 FileManager.updateConfigLine(Paths.get(SERVER_DIR, SERVER_PROPERTIES_FILE), "white-list", "white-list=true");
@@ -101,82 +88,54 @@ public class Main {
         // Select the seed.
         FileManager.updateConfigLine(Paths.get(SERVER_DIR, SERVER_PROPERTIES_FILE), "level-seed", "level-seed=" + seed);
 
-        // Start the server.
-        ProcessBuilder pb = new ProcessBuilder(cmd);
-        pb.directory(new File(SERVER_DIR));
-        pb.redirectErrorStream(true);
-        Process process = pb.start();
-        currentProcess = process;
+        if (!serverManager.startServer(cmd)) {
+            throw new IOException("Failed to start server, or server took too long to start.");
+        }
+        Thread.sleep(5000);
 
-        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            System.out.println(line);
-            if (line.contains("Done")) {
+        // Configure the thread preset.
+        serverManager.executeCommand("dh config common.threadPreset " + benchmarkConfig.threadPreset());
+        Thread.sleep(1000);
+
+        // Start pregen.
+        serverManager.executeCommand("dh pregen start minecraft:overworld 0 0 " + benchmarkConfig.generationRadius());
+
+        AtomicLong benchmarkStartTime = new AtomicLong(0);
+        AtomicBoolean pregenComplete = new AtomicBoolean(false);
+        AtomicReference<String> elapsedTimeStr = new AtomicReference<>("");
+
+        // Read server output until pregen completes
+        while (serverManager.isServerRunning() && !pregenComplete.get()) {
+            serverManager.waitForLogMessage(line -> {
+                if (line.contains("Starting pregen")) {
+                    benchmarkStartTime.set(System.currentTimeMillis());
+                    return false;
+                }
+
+                if (line.contains("Pregen is complete")) {
+                    if (benchmarkStartTime.get() != 0) {
+                        long elapsedMillis = System.currentTimeMillis() - benchmarkStartTime.get();
+                        elapsedTimeStr.set(formatDuration(elapsedMillis));
+                    }
+
+                    System.out.println("Pregen completed, shutting down server.");
+                    pregenComplete.set(true);
+                    return true;
+                }
+
+                return false;
+            }, -1); // No timeout
+
+            if (pregenComplete.get()) {
+                Thread.sleep(30000); // Safety, otherwise DH will complain about SQLite being closed.
+                serverManager.stopServer();
                 break;
             }
         }
 
-        // Let the server run a bit longer to finish startup.
-        Thread.sleep(5000);
-
-        PrintWriter processWriter = new PrintWriter(process.getOutputStream(), true);
-
-        // Configure the thread preset.
-        processWriter.println("dh config common.threadPreset " + benchmarkConfig.threadPreset());
-        Thread.sleep(1000);
-        // Start pregen.
-        processWriter.println("dh pregen start minecraft:overworld 0 0 " + benchmarkConfig.generationRadius());
-
-        long benchmarkStartTime = 0;
-        String elapsedTimeStr = "";
-        while (process.isAlive()) {
-            if ((line = reader.readLine()) == null) {
-                continue;
-            }
-            System.out.println(line);
-
-            if (line.contains("Starting pregen")) {
-                benchmarkStartTime = System.currentTimeMillis();
-            }
-
-            if (line.contains("Pregen is complete")) {
-                if (benchmarkStartTime != 0) {
-                    long elapsedMillis = System.currentTimeMillis() - benchmarkStartTime;
-                    elapsedTimeStr = formatDuration(elapsedMillis);
-                }
-                System.out.println("Pregen completed, shutting down server.");
-                Thread.sleep(20000); // Safety, otherwise DH will complain about SQLite being closed.
-                processWriter.println("stop");
-            }
-        }
-        currentProcess = null;
-
         Path dhDbPath = Paths.get(DH_DB_FILE);
         double dbSize = Files.exists(dhDbPath) ? Files.size(dhDbPath) / (1024.0 * 1024.0) : 0; // Get DB Size and convert to MB
-        return new BenchmarkResult(elapsedTimeStr, dbSize);
-    }
-
-    private static void cleanupProcess() {
-        if (currentProcess != null && currentProcess.isAlive()) {
-            try {
-                System.out.println("Shutdown hook triggered, terminating server process...");
-
-                currentProcess.destroy();
-
-                boolean terminated = currentProcess.waitFor(5, TimeUnit.SECONDS);
-
-                if (!terminated) {
-                    currentProcess.destroyForcibly();
-                }
-
-                System.out.println("Server process terminated.");
-            } catch (Exception e) {
-                System.err.println("Error during process cleanup: " + e.getMessage());
-            } finally {
-                currentProcess = null;
-            }
-        }
+        return new BenchmarkResult(elapsedTimeStr.get(), dbSize);
     }
 
     private static String formatDuration(long millis) {

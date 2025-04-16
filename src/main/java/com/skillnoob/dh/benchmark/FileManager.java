@@ -67,12 +67,13 @@ public class FileManager {
         }
     }
 
+    /**
+     * Writes benchmark results to a CSV file.
+     */
     public static void writeResultsToCSV(long[] seeds, List<BenchmarkResult> results, String filePath) throws IOException {
         try (PrintWriter writer = new PrintWriter(filePath)) {
-            // Write CSV header.
             writer.println("Seed,Elapsed Time,Database Size (MB)");
 
-            // Write each benchmark result as a CSV row.
             for (int i = 0; i < seeds.length; i++) {
                 BenchmarkResult res = results.get(i);
                 writer.println(seeds[i] + "," + res.elapsedTime() + "," + res.dbSize());
@@ -103,7 +104,7 @@ public class FileManager {
                     try {
                         Files.delete(path);
                     } catch (IOException e) {
-                        throw new RuntimeException("Failed to delete " + path, e);
+                        System.err.println("Warning: Failed to delete " + path + ": " + e.getMessage());
                     }
                 });
             }
