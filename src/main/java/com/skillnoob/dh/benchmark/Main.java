@@ -1,5 +1,8 @@
 package com.skillnoob.dh.benchmark;
 
+import com.skillnoob.dh.benchmark.data.BenchmarkConfig;
+import com.skillnoob.dh.benchmark.data.BenchmarkResult;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -95,9 +98,10 @@ public class Main {
 
         // Configure the thread preset.
         serverManager.executeCommand("dh config common.threadPreset " + benchmarkConfig.threadPreset());
-        Thread.sleep(1000);
+        Thread.sleep(5000);
 
         // Start pregen.
+        System.out.println("Starting pregen with radius " + benchmarkConfig.generationRadius() + " for seed " + seed);
         serverManager.executeCommand("dh pregen start minecraft:overworld 0 0 " + benchmarkConfig.generationRadius());
 
         AtomicLong benchmarkStartTime = new AtomicLong(0);
@@ -124,9 +128,10 @@ public class Main {
                 }
 
                 return false;
-            }, -1); // No timeout
+            });
 
             if (pregenComplete.get()) {
+                System.out.println("Waiting 30 seconds before server shutdown to ensure DB is properly finalized...");
                 Thread.sleep(30000); // Safety, otherwise DH will complain about SQLite being closed.
                 serverManager.stopServer();
                 break;

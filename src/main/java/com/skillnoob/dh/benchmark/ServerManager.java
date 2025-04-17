@@ -1,5 +1,7 @@
 package com.skillnoob.dh.benchmark;
 
+import com.skillnoob.dh.benchmark.data.BenchmarkConfig;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -14,6 +16,7 @@ public class ServerManager {
     private volatile Process serverProcess = null;
     private PrintWriter processWriter = null;
     private BufferedReader processReader = null;
+    private LogMonitor logMonitor = null;
 
     public ServerManager(BenchmarkConfig config) {
         this.config = config;
@@ -32,6 +35,8 @@ public class ServerManager {
         serverProcess = pb.start();
         processReader = new BufferedReader(new InputStreamReader(serverProcess.getInputStream(), StandardCharsets.UTF_8));
         processWriter = new PrintWriter(serverProcess.getOutputStream(), true);
+
+        logMonitor = new LogMonitor(processReader);
 
         return waitForLogMessage(line -> line.contains("Done"), 60);
     }
@@ -75,28 +80,27 @@ public class ServerManager {
      * Waits for a specific message in the server logs that matches the predicate.
      */
     public boolean waitForLogMessage(Predicate<String> messagePredicate, int timeoutSeconds) {
-        if (processReader == null) {
-            return false;
-        }
-
         try {
-            long startTime = System.currentTimeMillis();
-            long timeoutMillis = timeoutSeconds * 1000L;
-            String line;
+            long start = System.currentTimeMillis();
+            long timeoutMillis = timeoutSeconds == 0 ? Long.MAX_VALUE : timeoutSeconds * 1000L;
 
-            while (serverProcess.isAlive() && (timeoutSeconds == -1 || (System.currentTimeMillis() - startTime) < timeoutMillis)) {
-                if (processReader.ready() && (line = processReader.readLine()) != null) {
-                    System.out.println(line);
-                    if (messagePredicate.test(line)) {
-                        return true;
-                    }
+            while (serverProcess.isAlive() && (System.currentTimeMillis() - start) < timeoutMillis) {
+                String line = logMonitor.pollLine(1, TimeUnit.SECONDS);
+                if (line == null) {
+                    continue;
+                }
+                if (messagePredicate.test(line)) {
+                    return true;
                 }
             }
-            return false;
-        } catch (Exception e) {
-            System.err.println("Error waiting for log message: " + e.getMessage());
-            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
+        return false;
+    }
+
+    public void waitForLogMessage(Predicate<String> messagePredicate) {
+        waitForLogMessage(messagePredicate, 0);
     }
 
     /**
