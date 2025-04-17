@@ -1,6 +1,8 @@
 package com.skillnoob.dh.benchmark;
 
 import com.electronwill.nightconfig.core.file.FileConfig;
+import com.skillnoob.dh.benchmark.data.BenchmarkConfig;
+import com.skillnoob.dh.benchmark.data.BenchmarkResult;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -27,43 +29,39 @@ public class FileManager {
                 .build()) {
             config.load();
 
-            if (!config.contains("ram_gb")) {
-                config.set("ram_gb", 8);
-            }
-            if (!config.contains("seeds")) {
-                config.set("seeds", List.of(
-                        5057296280818819649L,
-                        2412466893128258733L,
-                        3777092783861568240L,
-                        -8505774097130463405L,
-                        4753729061374190018L));
-            }
-            if (!config.contains("thread_preset")) {
-                config.set("thread_preset", "I_PAID_FOR_THE_WHOLE_CPU");
-            }
-            if (!config.contains("generation_radius")) {
-                config.set("generation_radius", 128);
-            }
-            if (!config.contains("fabric_download_url")) {
-                config.set("fabric_download_url", "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.12/1.0.3/server/jar");
-            }
-            if (!config.contains("dh_download_url")) {
-                config.set("dh_download_url", "https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar");
-            }
+            // Set default values if not present
+            setDefaultIfMissing(config, "ram_gb", 8);
+            setDefaultIfMissing(config, "seeds", List.of(
+                    5057296280818819649L,
+                    2412466893128258733L,
+                    3777092783861568240L,
+                    -8505774097130463405L,
+                    4753729061374190018L));
+            setDefaultIfMissing(config, "thread_preset", "I_PAID_FOR_THE_WHOLE_CPU");
+            setDefaultIfMissing(config, "generation_radius", 128);
+            setDefaultIfMissing(config, "fabric_download_url", "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.12/1.0.3/server/jar");
+            setDefaultIfMissing(config, "dh_download_url", "https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar");
 
+            // Extract configuration values
             int ramGb = config.getInt("ram_gb");
-
-            List<Long> seedsList = config.get("seeds");
-            long[] seeds = new long[seedsList.size()];
-            for (int i = 0; i < seedsList.size(); i++) {
-                seeds[i] = seedsList.get(i);
-            }
+            long[] seeds = config.<List<Number>>get("seeds").stream()
+                    .mapToLong(Number::longValue)
+                    .toArray();
             String threadPreset = config.get("thread_preset");
             int generationRadius = config.getInt("generation_radius");
             String fabricDownloadUrl = config.get("fabric_download_url");
             String dhDownloadUrl = config.get("dh_download_url");
 
             return new BenchmarkConfig(ramGb, seeds, threadPreset, generationRadius, fabricDownloadUrl, dhDownloadUrl);
+        }
+    }
+    
+    /**
+     * Helper method to set a default value in the config if the key is missing.
+     */
+    private static <T> void setDefaultIfMissing(FileConfig config, String key, T defaultValue) {
+        if (!config.contains(key)) {
+            config.set(key, defaultValue);
         }
     }
 
@@ -127,3 +125,4 @@ public class FileManager {
         Files.write(filePath, newLines, StandardCharsets.UTF_8);
     }
 }
+
