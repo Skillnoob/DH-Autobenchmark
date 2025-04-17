@@ -1,4 +1,4 @@
-package com.skillnoob.dh.benchmark;
+package com.skillnoob.dh.benchmark.data;
 
 public record BenchmarkConfig(
         int ramGb,
