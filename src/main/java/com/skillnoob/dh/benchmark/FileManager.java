@@ -55,7 +55,7 @@ public class FileManager {
             return new BenchmarkConfig(ramGb, seeds, threadPreset, generationRadius, fabricDownloadUrl, dhDownloadUrl);
         }
     }
-    
+
     /**
      * Helper method to set a default value in the config if the key is missing.
      */
@@ -66,20 +66,21 @@ public class FileManager {
     }
 
     /**
-     * Writes benchmark results to a CSV file.
+     * Writes benchmark results to a CSV file, including averages.
      */
-    public static void writeResultsToCSV(long[] seeds, List<BenchmarkResult> results, String filePath) throws IOException {
+    public static void writeResultsToCSV(long[] seeds, List<BenchmarkResult> results, long avgTime, double avgDbSizeInMB, String filePath) throws IOException {
         try (PrintWriter writer = new PrintWriter(filePath)) {
             writer.println("Seed,Elapsed Time,Database Size (MB)");
 
             for (int i = 0; i < seeds.length; i++) {
                 BenchmarkResult res = results.get(i);
-                writer.println(seeds[i] + "," + res.elapsedTime() + "," + res.dbSize());
+                double dbSizeInMB = res.dbSize() / (1024.0 * 1024.0);
+                writer.println(seeds[i] + "," + res.elapsedTime() + "," + dbSizeInMB);
             }
-        }
-        System.out.println("Benchmark results saved to " + filePath);
-    }
 
+            writer.println("Average," + avgTime + "," + avgDbSizeInMB);
+        }
+    }
 
     /**
      * Ensures that a directory exists; if not, creates it.

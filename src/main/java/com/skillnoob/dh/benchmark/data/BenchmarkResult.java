@@ -1,4 +1,4 @@
 package com.skillnoob.dh.benchmark.data;
 
-public record BenchmarkResult(String elapsedTime, double dbSize) {
+public record BenchmarkResult(long elapsedTime, long dbSize) {
 }

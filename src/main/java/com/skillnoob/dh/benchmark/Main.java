@@ -4,6 +4,8 @@ import com.skillnoob.dh.benchmark.data.BenchmarkConfig;
 import com.skillnoob.dh.benchmark.data.BenchmarkResult;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -13,7 +15,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class Main {
     private static final String SERVER_DIR = "server";
@@ -65,15 +66,28 @@ public class Main {
                 benchmarkResults.add(result);
             }
 
-            // Log benchmark results.
             System.out.println("Benchmark completed. Results:");
+
+            long totalTime = 0;
+            double totalDBSizeInMB = 0;
+
             for (int i = 0; i < seeds.length; i++) {
                 BenchmarkResult res = benchmarkResults.get(i);
-                System.out.println("Seed " + seeds[i] + ": Elapsed Time: " + res.elapsedTime() + ", Database Size: " + res.dbSize() + " MB");
+                double dbSizeInMB = res.dbSize() / (1024.0 * 1024.0);
+                String formattedTime = formatDuration(res.elapsedTime());
+                System.out.println("Seed " + seeds[i] + ": Elapsed Time: " + formattedTime + ", Database Size: " + round(dbSizeInMB, 2) + " MB");
+
+                totalTime += res.elapsedTime();
+                totalDBSizeInMB += dbSizeInMB;
             }
 
-            // Save benchmark data to a CSV file.
-            FileManager.writeResultsToCSV(seeds, benchmarkResults, "benchmark-results.csv");
+            long avgTime = totalTime / seeds.length;
+            double avgDBSizeInMB = round(totalDBSizeInMB / seeds.length, 2);
+            String formattedAvgTime = formatDuration(avgTime);
+            System.out.println("Average: Elapsed Time: " + formattedAvgTime + ", Database Size: " + avgDBSizeInMB + " MB");
+
+            FileManager.writeResultsToCSV(seeds, benchmarkResults, avgTime, avgDBSizeInMB, "benchmark-results.csv");
+            System.out.println("Results saved to benchmark-results.csv");
         } catch (Exception e) {
             throw new RuntimeException("An error occurred during the benchmark process.", e);
         }
@@ -83,7 +97,7 @@ public class Main {
      * Runs the benchmark on a given seed.
      */
     private static BenchmarkResult runBenchmark(long seed, List<String> cmd) throws IOException, InterruptedException {
-        // Delete the previous world to avoid reusing old DB and world files.
+        // Delete the previous world
         Path worldDir = Paths.get(WORLD_DIR);
         if (Files.exists(worldDir)) {
             FileManager.deleteDirectory(worldDir);
@@ -106,7 +120,7 @@ public class Main {
 
         AtomicLong benchmarkStartTime = new AtomicLong(0);
         AtomicBoolean pregenComplete = new AtomicBoolean(false);
-        AtomicReference<String> elapsedTimeStr = new AtomicReference<>("");
+        AtomicLong elapsedTime = new AtomicLong(0);
 
         // Read server output until pregen completes
         while (serverManager.isServerRunning() && !pregenComplete.get()) {
@@ -118,8 +132,7 @@ public class Main {
 
                 if (line.contains("Pregen is complete")) {
                     if (benchmarkStartTime.get() != 0) {
-                        long elapsedMillis = System.currentTimeMillis() - benchmarkStartTime.get();
-                        elapsedTimeStr.set(formatDuration(elapsedMillis));
+                        elapsedTime.set(System.currentTimeMillis() - benchmarkStartTime.get());
                     }
 
                     System.out.println("Pregen completed, shutting down server.");
@@ -139,8 +152,8 @@ public class Main {
         }
 
         Path dhDbPath = Paths.get(DH_DB_FILE);
-        double dbSize = Files.exists(dhDbPath) ? Files.size(dhDbPath) / (1024.0 * 1024.0) : 0; // Get DB Size and convert to MB
-        return new BenchmarkResult(elapsedTimeStr.get(), dbSize);
+        long dbSize = Files.exists(dhDbPath) ? Files.size(dhDbPath) : 0;
+        return new BenchmarkResult(elapsedTime.get(), dbSize);
     }
 
     private static String formatDuration(long millis) {
@@ -149,5 +162,11 @@ public class Main {
         long minutes = d.toMinutes() % 60;
         long seconds = d.getSeconds() % 60;
         return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+    }
+
+    private static double round(double value, int places) {
+        BigDecimal bd = new BigDecimal(Double.toString(value));
+        bd = bd.setScale(places, RoundingMode.HALF_UP);
+        return bd.doubleValue();
     }
 }
