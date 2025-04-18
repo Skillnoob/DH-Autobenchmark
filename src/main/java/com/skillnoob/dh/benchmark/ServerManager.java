@@ -21,7 +21,10 @@ public class ServerManager {
     public ServerManager(BenchmarkConfig config) {
         this.config = config;
         // We don't want stray servers when the JVM exits.
-        Runtime.getRuntime().addShutdownHook(new Thread(this::stopServer));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("Shutdown hook triggered, stopping any active servers...");
+            stopServer();
+        }));
     }
 
     /**
