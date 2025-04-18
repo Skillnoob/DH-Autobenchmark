@@ -4,8 +4,6 @@ import com.skillnoob.dh.benchmark.data.BenchmarkConfig;
 import com.skillnoob.dh.benchmark.data.BenchmarkResult;
 
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -75,18 +73,18 @@ public class Main {
                 BenchmarkResult res = benchmarkResults.get(i);
                 double dbSizeInMB = res.dbSize() / (1024.0 * 1024.0);
                 String formattedTime = formatDuration(res.elapsedTime());
-                System.out.println("Seed " + seeds[i] + ": Elapsed Time: " + formattedTime + ", Database Size: " + round(dbSizeInMB, 2) + " MB");
+                System.out.println("Seed " + seeds[i] + ": Elapsed Time: " + formattedTime + ", Database Size: " + Math.round(dbSizeInMB) + " MB");
 
                 totalTime += res.elapsedTime();
                 totalDBSizeInMB += dbSizeInMB;
             }
 
             long avgTime = totalTime / seeds.length;
-            double avgDBSizeInMB = round(totalDBSizeInMB / seeds.length, 2);
+            long avgDBSizeInMB = Math.round(totalDBSizeInMB / seeds.length);
             String formattedAvgTime = formatDuration(avgTime);
             System.out.println("Average: Elapsed Time: " + formattedAvgTime + ", Database Size: " + avgDBSizeInMB + " MB");
 
-            FileManager.writeResultsToCSV(seeds, benchmarkResults, avgTime, avgDBSizeInMB, "benchmark-results.csv");
+            FileManager.writeResultsToCSV(seeds, benchmarkResults, formattedAvgTime, avgDBSizeInMB, "benchmark-results.csv");
             System.out.println("Results saved to benchmark-results.csv");
         } catch (Exception e) {
             throw new RuntimeException("An error occurred during the benchmark process.", e);
@@ -162,11 +160,5 @@ public class Main {
         long minutes = d.toMinutes() % 60;
         long seconds = d.getSeconds() % 60;
         return String.format("%02d:%02d:%02d", hours, minutes, seconds);
-    }
-
-    private static double round(double value, int places) {
-        BigDecimal bd = new BigDecimal(Double.toString(value));
-        bd = bd.setScale(places, RoundingMode.HALF_UP);
-        return bd.doubleValue();
     }
 }

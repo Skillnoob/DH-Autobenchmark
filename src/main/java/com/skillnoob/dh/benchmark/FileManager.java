@@ -68,7 +68,7 @@ public class FileManager {
     /**
      * Writes benchmark results to a CSV file, including averages.
      */
-    public static void writeResultsToCSV(long[] seeds, List<BenchmarkResult> results, long avgTime, double avgDbSizeInMB, String filePath) throws IOException {
+    public static void writeResultsToCSV(long[] seeds, List<BenchmarkResult> results, String avgTime, long avgDbSizeInMB, String filePath) throws IOException {
         try (PrintWriter writer = new PrintWriter(filePath)) {
             writer.println("Seed,Elapsed Time,Database Size (MB)");
 
