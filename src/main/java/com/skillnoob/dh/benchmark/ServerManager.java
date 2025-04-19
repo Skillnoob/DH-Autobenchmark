@@ -1,6 +1,7 @@
 package com.skillnoob.dh.benchmark;
 
 import com.skillnoob.dh.benchmark.data.BenchmarkConfig;
+import com.skillnoob.dh.benchmark.util.LogMonitor;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -22,7 +23,7 @@ public class ServerManager {
         this.config = config;
         // We don't want stray servers when the JVM exits.
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("Shutdown hook triggered, stopping any active servers...");
+            System.out.println("Shutdown hook triggered, shutting down the active server, if one is running. May take up to a minute.");
             stopServer();
         }));
     }
