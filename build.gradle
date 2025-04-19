@@ -12,29 +12,26 @@ repositories {
 
 dependencies {
     implementation 'com.electronwill.night-config:toml:3.8.1'
+    implementation 'com.github.oshi:oshi-core:6.8.1'
+    implementation 'org.slf4j:slf4j-nop:2.0.17'
 }
 
-java {
-    toolchain { languageVersion = JavaLanguageVersion.of(17) }
+java.toolchain {
+    languageVersion = JavaLanguageVersion.of(17)
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.release.set(17)
 }
 
-tasks.named('shadowJar') {
+shadowJar {
     archiveClassifier.set('')
-
     manifest {
         attributes 'Main-Class': 'com.skillnoob.dh.benchmark.Main'
     }
-
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
-tasks.named('build') {
-    dependsOn(tasks.named('shadowJar'))
-}
-tasks.named('jar').configure {
-    enabled = false
+build {
+    dependsOn(shadowJar)
 }
