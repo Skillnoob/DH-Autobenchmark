@@ -2,6 +2,9 @@ package com.skillnoob.dh.benchmark;
 
 import com.skillnoob.dh.benchmark.data.BenchmarkConfig;
 import com.skillnoob.dh.benchmark.data.BenchmarkResult;
+import com.skillnoob.dh.benchmark.util.DownloadManager;
+import com.skillnoob.dh.benchmark.util.FileManager;
+import com.skillnoob.dh.benchmark.util.HardwareInfo;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,6 +32,25 @@ public class Main {
     private static ServerManager serverManager;
 
     public static void main(String[] args) {
+        if (args.length == 1 && args[0].equals("--collect-hardware-info")) {
+            try {
+                if (System.getProperty("os.name").toLowerCase().contains("linux") && !isSudoUser()) {
+                    System.out.println("Collecting hardware information such as RAM speed and type requires root privileges on Linux. Please run the program with elevated privileges.");
+                    return;
+                } else {
+                    System.out.println("Collecting hardware information...");
+                    List<String> hardwareInfo = HardwareInfo.getHardwareInfo();
+                    System.out.println("CPU: " + hardwareInfo.get(0));
+                    System.out.println("RAM: " + hardwareInfo.get(1));
+                    System.out.println("Drive: " + hardwareInfo.get(2));
+                    FileManager.writeHardwareInfoToCSV("benchmark-results.csv", hardwareInfo);
+                }
+            } catch (IOException | InterruptedException e) {
+                System.err.println("Error checking for sudo privileges: " + e.getMessage());
+            }
+            return;
+        }
+
         try {
             benchmarkConfig = FileManager.loadBenchmarkConfig();
 
@@ -84,7 +106,7 @@ public class Main {
             String formattedAvgTime = formatDuration(avgTime);
             System.out.println("Average: Elapsed Time: " + formattedAvgTime + ", Database Size: " + avgDBSizeInMB + " MB");
 
-            FileManager.writeResultsToCSV(seeds, benchmarkResults, formattedAvgTime, avgDBSizeInMB, "benchmark-results.csv");
+            FileManager.writeResultsToCSV("benchmark-results.csv", seeds, benchmarkResults, formattedAvgTime, avgDBSizeInMB, benchmarkConfig.ramGb());
             System.out.println("Results saved to benchmark-results.csv");
         } catch (Exception e) {
             throw new RuntimeException("An error occurred during the benchmark process.", e);
@@ -154,11 +176,17 @@ public class Main {
         return new BenchmarkResult(elapsedTime.get(), dbSize);
     }
 
-    private static String formatDuration(long millis) {
+    public static String formatDuration(long millis) {
         Duration d = Duration.ofMillis(millis);
         long hours = d.toHours();
         long minutes = d.toMinutes() % 60;
         long seconds = d.getSeconds() % 60;
         return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+    }
+
+    private static boolean isSudoUser() throws IOException, InterruptedException {
+        Process p = new ProcessBuilder("id", "-u").start();
+        String uid = new String(p.getInputStream().readAllBytes()).trim();
+        return uid.equals("0");
     }
 }

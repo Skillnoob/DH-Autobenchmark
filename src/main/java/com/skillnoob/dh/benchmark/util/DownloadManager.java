@@ -1,4 +1,4 @@
-package com.skillnoob.dh.benchmark;
+package com.skillnoob.dh.benchmark.util;
 
 import java.io.IOException;
 import java.net.URI;
