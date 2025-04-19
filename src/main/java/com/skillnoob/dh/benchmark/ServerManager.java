@@ -5,6 +5,7 @@ import com.skillnoob.dh.benchmark.util.LogMonitor;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -118,7 +119,14 @@ public class ServerManager {
      * Gets the standard command list for starting the server.
      */
     public List<String> getServerStartCommand() {
-        return List.of("java", "-Xmx" + config.ramGb() + "G", "-jar", FABRIC_JAR, "nogui");
+        List<String> command = new ArrayList<>();
+        command.add("java");
+        command.add("-Xmx" + config.ramGb() + "G");
+        command.addAll(config.extraJvmArgs());
+        command.add("-jar");
+        command.add(FABRIC_JAR);
+        command.add("nogui");
+        return command;
     }
 
     /**

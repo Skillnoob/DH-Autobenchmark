@@ -1,5 +1,6 @@
 package com.skillnoob.dh.benchmark.util;
 
+import com.electronwill.nightconfig.core.file.CommentedFileConfig;
 import com.electronwill.nightconfig.core.file.FileConfig;
 import com.skillnoob.dh.benchmark.Main;
 import com.skillnoob.dh.benchmark.data.BenchmarkConfig;
@@ -12,28 +13,88 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
 public class FileManager {
-
     private static final String CONFIG_FILE = "dh-benchmark.toml";
+
+    // Default config values
+    private static final int DEFAULT_RAM_GB = 8;
+    private static final long[] DEFAULT_SEEDS = {5057296280818819649L, 2412466893128258733L, 3777092783861568240L, -8505774097130463405L, 4753729061374190018L};
+    private static final String DEFAULT_THREAD_PRESET = "I_PAID_FOR_THE_WHOLE_CPU";
+    private static final int DEFAULT_GENERATION_RADIUS = 128;
+    private static final String DEFAULT_FABRIC_DOWNLOAD_URL = "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.12/1.0.3/server/jar";
+    private static final String DEFAULT_DH_DOWNLOAD_URL = "https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar";
+    private static final List<String> DEFAULT_EXTRA_JVM_ARGS = new ArrayList<>();
 
     /**
      * Loads the benchmark configuration from a TOML file using NightConfig.
      */
     public static BenchmarkConfig loadBenchmarkConfig() {
-        try (FileConfig config = FileConfig.builder(CONFIG_FILE).preserveInsertionOrder().autosave().build()) {
+        try (CommentedFileConfig config = CommentedFileConfig.builder(CONFIG_FILE).preserveInsertionOrder().autosave().build()) {
             config.load();
 
             // Set default values if not present
-            setDefaultIfMissing(config, "ram_gb", 8);
-            setDefaultIfMissing(config, "seeds", List.of(5057296280818819649L, 2412466893128258733L, 3777092783861568240L, -8505774097130463405L, 4753729061374190018L));
-            setDefaultIfMissing(config, "thread_preset", "I_PAID_FOR_THE_WHOLE_CPU");
-            setDefaultIfMissing(config, "generation_radius", 128);
-            setDefaultIfMissing(config, "fabric_download_url", "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.12/1.0.3/server/jar");
-            setDefaultIfMissing(config, "dh_download_url", "https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar");
+            setDefaultIfMissing(config, "ram_gb", DEFAULT_RAM_GB);
+            setDefaultIfMissing(config, "seeds", DEFAULT_SEEDS);
+            setDefaultIfMissing(config, "thread_preset", DEFAULT_THREAD_PRESET);
+            setDefaultIfMissing(config, "generation_radius", DEFAULT_GENERATION_RADIUS);
+            setDefaultIfMissing(config, "fabric_download_url", DEFAULT_FABRIC_DOWNLOAD_URL);
+            setDefaultIfMissing(config, "dh_download_url", DEFAULT_DH_DOWNLOAD_URL);
+            setDefaultIfMissing(config, "extra_jvm_args", DEFAULT_EXTRA_JVM_ARGS);
+
+            config.setComment("ram_gb",
+                    String.format("""
+                            RAM allocated to the server in GB.
+                            Default is: %sGB.
+                            """, DEFAULT_RAM_GB)
+            );
+            config.setComment("seeds",
+                    String.format("""
+                            List of world seeds to use for the benchmark.
+                            Default is: %s
+                            """, Arrays.toString(DEFAULT_SEEDS)
+                    )
+            );
+            config.setComment("thread_preset",
+                    String.format("""
+                            This controls the Distant Horizons thread preset used when generating chunks.
+                            Available presets are: MINIMAL_IMPACT, LOW_IMPACT, BALANCED, AGGRESSIVE, I_PAID_FOR_THE_WHOLE_CPU.
+                            Default is: %s.
+                            """, DEFAULT_THREAD_PRESET
+                    )
+            );
+            config.setComment("generation_radius",
+                    String.format("""
+                            The radius in chunks of the area to generate around the center of the world.
+                            Default is: %s.
+                            """, DEFAULT_GENERATION_RADIUS
+                    ));
+            config.setComment("fabric_download_url",
+                    String.format("""
+                            The URL to download the Fabric server jar from.
+                            Default is: %s.
+                            """, DEFAULT_FABRIC_DOWNLOAD_URL
+                    )
+            );
+            config.setComment("dh_download_url",
+                    String.format("""
+                            The URL to download the Distant Horizons mod jar from.
+                            Default is: %s.
+                            """, DEFAULT_DH_DOWNLOAD_URL
+                    )
+            );
+            config.setComment("extra_jvm_args",
+                    String.format("""
+                            Extra JVM arguments to pass to the server.
+                            Example: ["arg1", "arg2"]
+                            Default is: %s.
+                            """, DEFAULT_EXTRA_JVM_ARGS
+                    )
+            );
 
             // Extract configuration values
             int ramGb = config.getInt("ram_gb");
@@ -42,8 +103,9 @@ public class FileManager {
             int generationRadius = config.getInt("generation_radius");
             String fabricDownloadUrl = config.get("fabric_download_url");
             String dhDownloadUrl = config.get("dh_download_url");
+            List<String> extraJvmArgs = config.get("extra_jvm_args");
 
-            return new BenchmarkConfig(ramGb, seeds, threadPreset, generationRadius, fabricDownloadUrl, dhDownloadUrl);
+            return new BenchmarkConfig(ramGb, seeds, threadPreset, generationRadius, fabricDownloadUrl, dhDownloadUrl, extraJvmArgs);
         }
     }
 
@@ -104,8 +166,8 @@ public class FileManager {
     public static void writeHardwareInfoToCSV(String filePath, List<String> hardwareInfo) throws IOException {
         Path csvPath = Paths.get(filePath);
         List<String> lines = Files.exists(csvPath) ?
-            Files.readAllLines(csvPath, StandardCharsets.UTF_8) :
-            new ArrayList<>();
+                Files.readAllLines(csvPath, StandardCharsets.UTF_8) :
+                new ArrayList<>();
 
         lines.add("");
 

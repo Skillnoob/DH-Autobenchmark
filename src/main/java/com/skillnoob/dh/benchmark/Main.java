@@ -35,8 +35,7 @@ public class Main {
         if (args.length == 1 && args[0].equals("--collect-hardware-info")) {
             try {
                 if (System.getProperty("os.name").toLowerCase().contains("linux") && !isSudoUser()) {
-                    System.out.println("Collecting hardware information such as RAM speed and type requires root privileges on Linux. Please run the program with elevated privileges.");
-                    return;
+                    System.err.println("Collecting hardware information such as RAM speed and type requires root privileges on Linux. Please run the program with elevated privileges.");
                 } else {
                     System.out.println("Collecting hardware information...");
                     List<String> hardwareInfo = HardwareInfo.getHardwareInfo();
