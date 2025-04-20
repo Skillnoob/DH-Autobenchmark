@@ -13,7 +13,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
@@ -23,10 +22,10 @@ public class FileManager {
 
     // Default config values
     private static final int DEFAULT_RAM_GB = 8;
-    private static final long[] DEFAULT_SEEDS = {5057296280818819649L, 2412466893128258733L, 3777092783861568240L, -8505774097130463405L, 4753729061374190018L};
+    private static final List<Long> DEFAULT_SEEDS = List.of(5057296280818819649L, 2412466893128258733L, 3777092783861568240L, -8505774097130463405L, 4753729061374190018L);
     private static final String DEFAULT_THREAD_PRESET = "I_PAID_FOR_THE_WHOLE_CPU";
     private static final int DEFAULT_GENERATION_RADIUS = 128;
-    private static final String DEFAULT_FABRIC_DOWNLOAD_URL = "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.12/1.0.3/server/jar";
+    private static final String DEFAULT_FABRIC_DOWNLOAD_URL = "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.13/1.0.3/server/jar";
     private static final String DEFAULT_DH_DOWNLOAD_URL = "https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar";
     private static final List<String> DEFAULT_EXTRA_JVM_ARGS = new ArrayList<>();
 
@@ -56,7 +55,7 @@ public class FileManager {
                     String.format("""
                             List of world seeds to use for the benchmark.
                             Default is: %s
-                            """, Arrays.toString(DEFAULT_SEEDS)
+                            """, DEFAULT_SEEDS
                     )
             );
             config.setComment("thread_preset",
@@ -98,7 +97,7 @@ public class FileManager {
 
             // Extract configuration values
             int ramGb = config.getInt("ram_gb");
-            long[] seeds = config.<List<Number>>get("seeds").stream().mapToLong(Number::longValue).toArray();
+            List<Long> seeds = config.get("seeds");
             String threadPreset = config.get("thread_preset");
             int generationRadius = config.getInt("generation_radius");
             String fabricDownloadUrl = config.get("fabric_download_url");
@@ -121,18 +120,18 @@ public class FileManager {
     /**
      * Writes benchmark results to a CSV file.
      */
-    public static void writeResultsToCSV(String filePath, long[] seeds, List<BenchmarkResult> results, String avgTime, long avgDbSizeInMB, int ramGB) throws IOException {
+    public static void writeResultsToCSV(String filePath, List<Long> seeds, List<BenchmarkResult> results, String avgTime, long avgDbSizeInMB, int ramGB) throws IOException {
         try (PrintWriter writer = new PrintWriter(filePath)) {
             // Write header row
             StringBuilder header = new StringBuilder();
 
-            for (int i = 0; i < seeds.length; i++) {
+            for (int i = 0; i < seeds.size(); i++) {
                 header.append("Run ").append(i + 1).append("\t");
             }
             header.append("Average\t");
 
             // Add DB size columns
-            for (int i = 0; i < seeds.length; i++) {
+            for (int i = 0; i < seeds.size(); i++) {
                 header.append("DB Size Run ").append(i + 1).append("\t");
             }
             header.append("DB Size Average\t");

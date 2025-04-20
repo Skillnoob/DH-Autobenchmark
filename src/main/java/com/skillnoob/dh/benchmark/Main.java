@@ -55,7 +55,7 @@ public class Main {
 
             System.out.println("Loaded configuration:");
             System.out.println("RAM (GB): " + benchmarkConfig.ramGb());
-            System.out.println("Seeds: " + Arrays.toString(benchmarkConfig.seeds()));
+            System.out.println("Seeds: " + benchmarkConfig.seeds());
             System.out.println("Thread Preset: " + benchmarkConfig.threadPreset());
             System.out.println("Benchmark Radius: " + benchmarkConfig.generationRadius());
             System.out.println("Fabric Download URL: " + benchmarkConfig.fabricDownloadUrl());
@@ -77,10 +77,10 @@ public class Main {
 
             DownloadManager.downloadFile(benchmarkConfig.dhDownloadUrl(), MODS_DIR, DH_JAR);
 
-            long[] seeds = benchmarkConfig.seeds();
+            List<Long> seeds = benchmarkConfig.seeds();
             List<BenchmarkResult> benchmarkResults = new ArrayList<>();
             // Run the benchmark for each seed.
-            for (long seed : seeds) {
+            for (Long seed : seeds) {
                 BenchmarkResult result = runBenchmark(seed, serverCmd);
                 benchmarkResults.add(result);
             }
@@ -90,18 +90,18 @@ public class Main {
             long totalTime = 0;
             double totalDBSizeInMB = 0;
 
-            for (int i = 0; i < seeds.length; i++) {
+            for (int i = 0; i < seeds.size(); i++) {
                 BenchmarkResult res = benchmarkResults.get(i);
                 double dbSizeInMB = res.dbSize() / (1024.0 * 1024.0);
                 String formattedTime = formatDuration(res.elapsedTime());
-                System.out.println("Seed " + seeds[i] + ": Elapsed Time: " + formattedTime + ", Database Size: " + Math.round(dbSizeInMB) + " MB");
+                System.out.println("Seed " + seeds.get(i) + ": Elapsed Time: " + formattedTime + ", Database Size: " + Math.round(dbSizeInMB) + " MB");
 
                 totalTime += res.elapsedTime();
                 totalDBSizeInMB += dbSizeInMB;
             }
 
-            long avgTime = totalTime / seeds.length;
-            long avgDBSizeInMB = Math.round(totalDBSizeInMB / seeds.length);
+            long avgTime = totalTime / seeds.size();
+            long avgDBSizeInMB = Math.round(totalDBSizeInMB / seeds.size());
             String formattedAvgTime = formatDuration(avgTime);
             System.out.println("Average: Elapsed Time: " + formattedAvgTime + ", Database Size: " + avgDBSizeInMB + " MB");
 

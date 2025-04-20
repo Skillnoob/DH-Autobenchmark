@@ -4,7 +4,7 @@ import java.util.List;
 
 public record BenchmarkConfig(
         int ramGb,
-        long[] seeds,
+        List<Long> seeds,
         String threadPreset,
         int generationRadius,
         String fabricDownloadUrl,
