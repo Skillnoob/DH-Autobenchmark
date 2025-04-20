@@ -38,30 +38,39 @@ public class HardwareInfo {
 
     // Gets RAM information
     private static String getRamInfo() {
-        HardwareAbstractionLayer hardware = systemInfo.getHardware();
-        GlobalMemory memory = hardware.getMemory();
+        GlobalMemory memory = systemInfo.getHardware().getMemory();
 
-        // Calculate total installed memory in GB
-        long installedGiB = memory.getPhysicalMemory().stream()
+        List<PhysicalMemory> modules = memory.getPhysicalMemory();
+        // MacOS doesn't report this for some reason
+        long installedBytes = modules.stream()
                 .mapToLong(PhysicalMemory::getCapacity)
-                .sum() / (1024 * 1024 * 1024);
+                .sum();
 
-        // Get memory speed, requires elevated privileges on linux
-        long maxSpeedHz = memory.getPhysicalMemory().stream()
+        double gb;
+        if (installedBytes > 0) {
+            gb = installedBytes / (1024.0 * 1024.0 * 1024.0);
+        } else {
+            // Fallback to OS‑reported usable memory
+            gb = memory.getTotal() / (1024.0 * 1024.0 * 1024.0);
+        }
+
+        String sizeString = String.valueOf(Math.round(gb));
+
+        // Memory type, MacOS doesn't give us this either
+        String memoryType = modules.stream()
+                .map(PhysicalMemory::getMemoryType)
+                .filter(t -> t != null && !t.equalsIgnoreCase("Unknown") && !t.isBlank())
+                .findFirst().orElse("DDR?");
+
+        // As usual, MacOS says no
+        long maxSpeedHz = modules.stream()
                 .mapToLong(PhysicalMemory::getClockSpeed)
-                .max().orElse(-1);
+                .max().orElse(0);
         String memorySpeed = maxSpeedHz > 0
-                ? String.format(" %.0fMT/s", maxSpeedHz / 1_000_000.0)
+                ? String.format(" %.0f MT/s", maxSpeedHz / 1_000_000.0)
                 : "";
 
-        // Identify memory type (DDR4, etc.)
-        String memoryType = memory.getPhysicalMemory().stream()
-                .map(PhysicalMemory::getMemoryType)
-                .filter(type -> type != null && !type.equalsIgnoreCase("Unknown") && !type.isBlank())
-                .toList()
-                .get(0);
-
-        return String.format("%d GB %s%s", installedGiB, memoryType, memorySpeed);
+        return String.format("%s %s%s", sizeString, memoryType, memorySpeed);
     }
 
     private static String getCurrentDriveModel() {
