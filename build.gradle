@@ -17,11 +17,11 @@ dependencies {
 }
 
 java.toolchain {
-    languageVersion = JavaLanguageVersion.of(17)
+    languageVersion = JavaLanguageVersion.of(21)
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.release.set(17)
+    options.release.set(21)
 }
 
 shadowJar {
