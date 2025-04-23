@@ -50,7 +50,7 @@ public class HardwareInfo {
         if (installedBytes > 0) {
             gb = installedBytes / (1024.0 * 1024.0 * 1024.0);
         } else {
-            // Fallback to OS‑reported usable memory
+            // Fallback to OS‑reported usable memory, because MacOS
             gb = memory.getTotal() / (1024.0 * 1024.0 * 1024.0);
         }
 
@@ -62,7 +62,7 @@ public class HardwareInfo {
                 .filter(t -> t != null && !t.equalsIgnoreCase("Unknown") && !t.isBlank())
                 .findFirst().orElse("DDR?");
 
-        // As usual, MacOS says no
+        // As usual, MacOS says no to memory speed
         long maxSpeedHz = modules.stream()
                 .mapToLong(PhysicalMemory::getClockSpeed)
                 .max().orElse(0);

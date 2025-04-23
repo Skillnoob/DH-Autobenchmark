@@ -77,10 +77,10 @@ public class Main {
 
             DownloadManager.downloadFile(benchmarkConfig.dhDownloadUrl(), MODS_DIR, DH_JAR);
 
-            List<Long> seeds = benchmarkConfig.seeds();
+            List<String> seeds = benchmarkConfig.seeds();
             List<BenchmarkResult> benchmarkResults = new ArrayList<>();
             // Run the benchmark for each seed.
-            for (Long seed : seeds) {
+            for (String seed : seeds) {
                 BenchmarkResult result = runBenchmark(seed, serverCmd);
                 benchmarkResults.add(result);
             }
@@ -115,7 +115,7 @@ public class Main {
     /**
      * Runs the benchmark on a given seed.
      */
-    private static BenchmarkResult runBenchmark(long seed, List<String> cmd) throws IOException, InterruptedException {
+    private static BenchmarkResult runBenchmark(String seed, List<String> cmd) throws IOException, InterruptedException {
         // Delete the previous world
         Path worldDir = Paths.get(WORLD_DIR);
         if (Files.exists(worldDir)) {

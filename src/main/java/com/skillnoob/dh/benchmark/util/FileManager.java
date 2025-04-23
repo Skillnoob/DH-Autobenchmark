@@ -22,7 +22,7 @@ public class FileManager {
 
     // Default config values
     private static final int DEFAULT_RAM_GB = 8;
-    private static final List<Long> DEFAULT_SEEDS = List.of(5057296280818819649L, 2412466893128258733L, 3777092783861568240L, -8505774097130463405L, 4753729061374190018L);
+    private static final List<String> DEFAULT_SEEDS = List.of("5057296280818819649", "2412466893128258733", "3777092783861568240", "-8505774097130463405", "4753729061374190018");
     private static final String DEFAULT_THREAD_PRESET = "I_PAID_FOR_THE_WHOLE_CPU";
     private static final int DEFAULT_GENERATION_RADIUS = 128;
     private static final String DEFAULT_FABRIC_DOWNLOAD_URL = "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.13/1.0.3/server/jar";
@@ -48,13 +48,13 @@ public class FileManager {
             config.setComment("ram_gb",
                     String.format("""
                             RAM allocated to the server in GB.
-                            Default is: %sGB.
+                            Default: %sGB.
                             """, DEFAULT_RAM_GB)
             );
             config.setComment("seeds",
                     String.format("""
                             List of world seeds to use for the benchmark.
-                            Default is: %s
+                            Default: %s
                             """, DEFAULT_SEEDS
                     )
             );
@@ -62,27 +62,27 @@ public class FileManager {
                     String.format("""
                             This controls the Distant Horizons thread preset used when generating chunks.
                             Available presets are: MINIMAL_IMPACT, LOW_IMPACT, BALANCED, AGGRESSIVE, I_PAID_FOR_THE_WHOLE_CPU.
-                            Default is: %s.
+                            Default: %s.
                             """, DEFAULT_THREAD_PRESET
                     )
             );
             config.setComment("generation_radius",
                     String.format("""
                             The radius in chunks of the area to generate around the center of the world.
-                            Default is: %s.
+                            Default: %s.
                             """, DEFAULT_GENERATION_RADIUS
                     ));
             config.setComment("fabric_download_url",
                     String.format("""
                             The URL to download the Fabric server jar from.
-                            Default is: %s.
+                            Default: %s.
                             """, DEFAULT_FABRIC_DOWNLOAD_URL
                     )
             );
             config.setComment("dh_download_url",
                     String.format("""
                             The URL to download the Distant Horizons mod jar from.
-                            Default is: %s.
+                            Default: %s.
                             """, DEFAULT_DH_DOWNLOAD_URL
                     )
             );
@@ -90,14 +90,14 @@ public class FileManager {
                     String.format("""
                             Extra JVM arguments to pass to the server.
                             Example: ["arg1", "arg2"]
-                            Default is: %s.
+                            Default: %s.
                             """, DEFAULT_EXTRA_JVM_ARGS
                     )
             );
 
             // Extract configuration values
             int ramGb = config.getInt("ram_gb");
-            List<Long> seeds = config.get("seeds");
+            List<String> seeds = config.get("seeds");
             String threadPreset = config.get("thread_preset");
             int generationRadius = config.getInt("generation_radius");
             String fabricDownloadUrl = config.get("fabric_download_url");
@@ -120,7 +120,7 @@ public class FileManager {
     /**
      * Writes benchmark results to a CSV file.
      */
-    public static void writeResultsToCSV(String filePath, List<Long> seeds, List<BenchmarkResult> results, String avgTime, long avgDbSizeInMB, int ramGB) throws IOException {
+    public static void writeResultsToCSV(String filePath, List<String> seeds, List<BenchmarkResult> results, String avgTime, long avgDbSizeInMB, int ramGB) throws IOException {
         try (PrintWriter writer = new PrintWriter(filePath)) {
             // Write header row
             StringBuilder header = new StringBuilder();
