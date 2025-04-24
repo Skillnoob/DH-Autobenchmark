@@ -12,19 +12,18 @@ DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 
 
 ## VARIABLES ##
-# do not manually edit
+# Do not manually edit
 CONFIG="dh-automation.config"
 SERVERPROPERTIES=${DIR}"/server.properties"
 SCREEN="dh-automation-benchmark"
 BUFFERCOUNTER="1"
 RUN="1"
 BENCHMARKTIME_SECONDS="do_not_edit"
-CSVFILE="${DIR}/benchmark-results.csv"
-RUNTXTFILE="${DIR}/benchmark-run-results.txt"
-DBSIZETXTFILE="${DIR}/benchmark-dbsize-results.txt"
+RESULTSCSVFILE="${DIR}/benchmark-results.csv"
 BUFFERFILE="${DIR}/dh-automation-screen-buffer.txt"
-HARDWAREINFORMATIONCSV="${DIR}/hardware-information.csv"
-SEED=""
+BACKUPHARDWAREINFORMATIONCSV="${DIR}/hardware-information.csv"
+RUNTIMES=()
+DBSIZES=()
 
 
 ## EXIT CODES ##
@@ -32,12 +31,12 @@ SEED=""
 # 2 = wget and curl not installed
 # 3 = folder "mods" could not be created
 # 4 = EULA not accepted
-# 5 = Wrong SEED value in the SEED variable
+# 5 = There is no Seed that could be set
 # 6 = Not able to set threadPreset when server is running
 # 7 = Server did not start correctly
-# 8 = Bufferfile could not be deleted or overwritten
+# 8 = A File could not be deleted or overwritten
 # 9 = Not able to delete world folder
-# 10 = A File could not be deleted or overwritten
+
 
 
 
@@ -83,7 +82,7 @@ downloadIfNotExist() {
 
 # check if config file exists, otherwise create config file and fill it with necessary entries
 configCheck() {
-  if test -s ${DIR}/dh-automation.config
+  if test -s ${DIR}/dh-automation.config 2>/dev/null
   then
       echo "Config file exists"
       read -r -p "Do you want to edit the config file? (Yes/No): " CONFIGANSWER
@@ -102,27 +101,36 @@ configCheck() {
       echo "# DISTANT HORIZONS COMMUNITY AUTO-BENCHMARK-SCRIPT #" >>${CONFIG}
       echo "####################################################" >>${CONFIG}
       echo "" >>${CONFIG}
+      echo "-------------------" >>${CONFIG}
       echo "# SERVER SETTINGS #" >>${CONFIG}
+      echo "-------------------" >>${CONFIG}
       echo "" >>${CONFIG}
+      echo "# RAM allocated to the server in GB. (Default: 8)" >>${CONFIG}
       echo 'ram_gb="8"' >>${CONFIG}
-      echo 'java_flags=""' >>${CONFIG}
+      echo "# Extra JVM arguments to pass to the server. (Default: None)" >>${CONFIG}
+      echo 'extra_jvm_args=""' >>${CONFIG}
       echo "" >>${CONFIG}
+      echo "------------------" >>${CONFIG}
       echo "# WORLD SETTINGS #" >>${CONFIG}
+      echo "------------------" >>${CONFIG}
       echo "" >>${CONFIG}
+      echo "# List of world seeds to use for the benchmark." >>${CONFIG}
       echo 'seeds=(5057296280818819649 2412466893128258733 3777092783861568240 -8505774097130463405 4753729061374190018)'>>${CONFIG}
-#      echo 'seed1="5057296280818819649"' >>${CONFIG}
-#      echo 'seed2="2412466893128258733"' >>${CONFIG}
-#      echo 'seed3="3777092783861568240"' >>${CONFIG}
-#      echo 'seed4="-8505774097130463405"' >>${CONFIG}
-#      echo 'seed5="4753729061374190018"' >>${CONFIG}
       echo "" >>${CONFIG}
+      echo "---------------" >>${CONFIG}
       echo "# DH SETTINGS #" >>${CONFIG}
+      echo "---------------" >>${CONFIG}
       echo "" >>${CONFIG}
+      echo "# This controls the Distant Horizons thread preset used when generating chunks. (Default: I_PAID_FOR_THE_WHOLE_CPU)" >>${CONFIG}
+      echo "# Available Presets are: MINIMAL_IMPACT, LOW_IMPACT, BALANCED, AGGRESSIVE, I_PAID_FOR_THE_WHOLE_CPU." >>${CONFIG}
       echo 'thread_preset="I_PAID_FOR_THE_WHOLE_CPU"' >>${CONFIG}
-      echo 'generation_radius="128"' >>${CONFIG}
+      echo "# The radius in chunks of the area to generate around the center of the world. (Default: 256)" >>${CONFIG}
+      echo 'generation_radius="256"' >>${CONFIG}
+      echo "# The URL to download the Fabric server jar from." >>${CONFIG}
       echo 'fabric_download_url="https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.12/1.0.3/server/jar"' >>${CONFIG}
+      echo "# The URL to download the Distant Horizons mod jar from." >>${CONFIG}
       echo 'dh_download_url="https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar"' >>${CONFIG}
-      echo "Config created, continuing..."
+      echo "Config created."
 
       if test ${CONFIGANSWER} == "Yes"
       then 
@@ -221,10 +229,9 @@ serverPropertiesCheck() {
 }
 
 benchmarkResultsCSVCreate() {
-  echo "Run 1, Run 2, Run 3, Run 4, Run 5, DB Size Run 1, DB Size Run 2, DB Size Run 3, DB Size Run 4, DB Size Run 5" >${CSVFILE}
+  echo "Run 1, Run 2, Run 3, Run 4, Run 5, DB Size Run 1, DB Size Run 2, DB Size Run 3, DB Size Run 4, DB Size Run 5" >${RESULTSCSVFILE}
 }
 
-#First time setup
 downloadFabricAndDistantHorizons() {
   downloadIfNotExist ${DIR}/fabricserver.jar ${DIR}/fabricserver.jar ${fabric_download_url}
   
@@ -269,9 +276,9 @@ eulaCheck() {
   fi
 }
 
-screenstartserver() {
+screenStartServer() {
   echo "Starting Server!"
-  screen -d -m -S ${SCREEN} java -Xmx${ram_gb}G -jar ${DIR}/fabricserver.jar nogui &
+  screen -d -m -S ${SCREEN} java -Xmx${ram_gb}G ${extra_jvm_args} -jar ${DIR}/fabricserver.jar nogui &
 }
 
 setSeed() {
@@ -279,40 +286,9 @@ if test ${1} -le ${#seeds[@]} && test ${1} -gt 0
 then
   echo "level-seed=${seeds[$((${1}-1))]}" >>${SERVERPROPERTIES}
 else
-  echo "Seed #${1} does not exist"
+  echo "Seed #${1} does not exist!"
+  exit 5
 fi
-
-#case $1 in
-#  "1")
-#    echo "level-seed=${seed1}" >>${SERVERPROPERTIES}
-#    SEED=${seed1}
-#    echo "Set seed to ${seed1}"
-#    ;;
-#  "2")
-#    echo "level-seed=${seed2}" >>${SERVERPROPERTIES}
-#    SEED=${seed2}
-#    echo "Set seed to ${seed2}"
-#    ;;
-#  "3")
-#    echo "level-seed=${seed3}" >>${SERVERPROPERTIES}
-#    SEED=${seed3}
-#    echo "Set seed to ${seed3}"
-#    ;;
-#  "4")
-#    echo "level-seed=${seed4}" >>${SERVERPROPERTIES}
-#    SEED=${seed4}
-#    echo "Set seed to ${seed4}"
-#    ;;
-#  "5")
-#    echo "level-seed=${seed5}" >>${SERVERPROPERTIES}
-#    SEED=${seed5}
-#    echo "Set seed to ${seed5}"
-#    ;;
-#  *)
-#    echo 'There is no seed"${SEED}"!'
-#    exit 5 
-#esac
-
 }
 
 setThreadPreset() {
@@ -323,6 +299,8 @@ setThreadPreset() {
     echo "Could not set common.threadPreset to ${thread_preset}"
     exit 6
   fi
+  # Wait five seconds so that the server can set the thread preset
+  sleep 5s
 }
 
 stopServer() {
@@ -344,7 +322,6 @@ do
 done
 
   echo "Server stopped!"
-
 }
 
 worldDelete() {
@@ -379,7 +356,7 @@ fileCheck() {
           echo "Successfully overwritten File ${FILE}" >/dev/null
         else
           echo "Could not overwrite File ${FILE}, exiting script..."
-          exit 10
+          exit 8
         fi
       fi
     else
@@ -390,28 +367,29 @@ fileCheck() {
 
 ## Main structure
 
-# preparation
+# Check for dh-automation.config
 configCheck
-# Get variables from config file (dh-automation.config)
+# Get variables from config file
 source ${CONFIG}
 
+# Check for screen, fabricserver.jar and Distant Horizons mod file 
 screenCheck
 downloadFabricAndDistantHorizons
 eulaCheck
-fileCheck ${RUNTXTFILE} ${DBSIZETXTFILE}
 
-# muss im loop laufen (5x insgesamt für jeden Run)
+# Five runs (one for every seed)
 while ! test ${RUN} -ge 6
 do
   serverPropertiesCreate
   setSeed ${RUN}
+  # Delete previous world
   worldDelete
-  screenstartserver
+  screenStartServer
 
   fileCheck ${BUFFERFILE}
 
-  # wait for server to succesfully start
-  while ! grep -w "Done" <${BUFFERFILE} 2>/dev/null
+  # Wait for server to succesfully start
+  while ! grep -w "Done" <${BUFFERFILE} 
   do
     if test ${BUFFERCOUNTER} -lt 300
     then
@@ -426,7 +404,7 @@ do
 
   setThreadPreset
   
-  echo "Starting Pregen Run ${RUN} with radius ${generation_radius} for seed ${SEED}"
+  echo "Starting Pregen Run ${RUN} with radius ${generation_radius} for seed ${seeds[$((${RUN}-1))]}"
   if screen -S ${SCREEN} -X stuff "dh pregen start minecraft:overworld 0 0 ${generation_radius}"^M
   then
     screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
@@ -450,13 +428,23 @@ do
 
     stopServer
 
-    # Benchmarkzeit in txt Datei schreiben
-    echo "$(( (BENCHMARKTIME_SECONDS / 60)/60 )):$((BENCHMARKTIME_SECONDS / 60)):$((BENCHMARKTIME_SECONDS % 60))" >>${RUNTXTFILE}
+    # Add benchmark times to RUNTIMES array (without "," when it is the last run)
+    if test ${RUN} == "5"
+    then
+      RUNTIMES+=($(( (BENCHMARKTIME_SECONDS / 60)/60 )):$((BENCHMARKTIME_SECONDS / 60)):$((BENCHMARKTIME_SECONDS % 60)))
+    else
+      RUNTIMES+=($(( (BENCHMARKTIME_SECONDS / 60)/60 )):$((BENCHMARKTIME_SECONDS / 60)):$((BENCHMARKTIME_SECONDS % 60))",")
+    fi
     
-    # DB-Groesse in txt Datei schreiben
+    # Add db sizes to DBSIZES array (without "," when it is the last run)
     DBSIZE=$(stat -c '%s' ${DIR}/world/data/DistantHorizons.sqlite)
     DBSIZEMB=$((DBSIZE / (1024*1024)))
-    echo ${DBSIZEMB}"MB" >>${DBSIZETXTFILE}
+    if test ${RUN} == "5"
+    then
+      DBSIZES+=(${DBSIZEMB}"MB")
+    else
+      DBSIZES+=(${DBSIZEMB}"MB,")
+    fi
     echo "The DB has a size of ${DBSIZEMB}MB"
   fi  
   RUN=$((++RUN)) 
@@ -464,50 +452,44 @@ done
 
 benchmarkResultsCSVCreate
 
-# Convert Runs txt file to csv format, appends it to the csv file, and deletes the txt file after
-if tr "\n" "," <${RUNTXTFILE} >>${CSVFILE} 
+# Add the time of every run to the main csv file
+if echo ${RUNTIMES[@]} >>${RESULTSCSVFILE}
 then
-  echo "Converted Runs to CSV format!"
-  if rm ${RUNTXTFILE}
-  then
-    echo "Successfully deleted ${RUNTXTFILE}!" >/dev/null
-  else
-    echo "Could not delete ${RUNTXTFILE}"
-  fi
+  echo "Added run times to main csv file!"
 else
-  echo "Could not convert Runs to CSV format."
+  echo "Could not add run times to main csv file."
+  echo "Please provide this information when submitting:"
+  echo ${RUNTIMES[@]}
 fi
 
-# Convert DB Size txt file to csv format and delete after
-if tr "\n" "," <${DBSIZETXTFILE} >>${CSVFILE} 
+# Add the db size of every run to the main csv file
+if echo ${DBSIZES[@]} >>${RESULTSCSVFILE}
 then
-  echo "Converted DB Sizes to CSV format!"
-  if rm ${DBSIZETXTFILE}
-  then
-    echo "Successfully deleted ${DBSIZETXTFILE}" >/dev/null
-  else
-    echo "Could not delete ${RUNTXTFILE}"
-  fi
+  echo "Added run times to main csv file!"
 else
-  echo "Could not convert DB Sizes to CSV format."
+  echo "Could not add run times to main csv file."
+  echo "Please provide this information when submitting:"
+  echo ${DBSIZES[@]}
 fi
 
-# Hardware Information
-# prepare fresh csv file, then fill with data
-echo "CPU, RAM, DRIVE" >${HARDWAREINFORMATIONCSV}
+
+# Hardware Information #
+HARDWAREINFORMATION=()
 # Data preparation
 echo "Collecting CPU information..."
 CPU=$(lscpu | grep 'Model name' | cut -f 2 -d ":" | awk '{$1=$1}1')
 CPUCORES=$(lscpu | awk '/^Socket\(s\):/ {sockets=$2} /^Core\(s\) per socket:/ {cores=$4} END {print sockets * cores}')
 CPUTHREADS=$(nproc --all)
 echo "CPU: ${CPU} ${CPUCORES}C/${CPUTHREADS}T"
+# Add CPU information to HARDWAREINFORMATION array
+HARDWAREINFORMATION+=("${CPU} ${CPUCORES}C/${CPUTHREADS}T,")
 
-read -r -p "The following commands have to be executed with elevated privileges to get the full data automatically, you may be asked multiple times, do you agree? (Yes/No)" ANSWERHARDWAREDATA
+read -r -p "The following commands have to be executed with elevated privileges to get the full data automatically, you may be asked multiple times, do you agree? (Yes/No): " ANSWERHARDWAREDATA
 if test ${ANSWERHARDWAREDATA} == "Yes"
 then
   echo 'Please make sure that the package "dmidecode" is installed with your linux system otherwise the following data collection will not work.'
   sleep 3s
-  # collect RAM information
+  # Collect RAM information
   echo "Collecting RAM information..."
     RAMSIZEONCE=$(sudo dmidecode -t memory | grep -w "Size" | grep -w "GB" | cut -d " " -f 2 | head -n 1)
     RAMSTICKSDOUBLE=$(sudo dmidecode -t memory | grep -w "Size" | grep -w "GB" | wc -l)
@@ -517,10 +499,12 @@ then
     && RAMSPEED=$(sudo dmidecode -t memory | grep "Configured Memory Speed" | cut -d " " -f 4,5 | head -n 1) 
   then
     echo "RAM: ${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED}"
+    # Add RAM information to HARDWAREINFORMATION array
+    HARDWAREINFORMATION+=("${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED},")
   else
     echo "RAM information could not be collected!"
   fi
-  # collect disk information
+  # Collect disk information
   echo "Collecting Disk information..."
     DISKPARTITION=$(df ${DIR} | grep dev | cut -d " " -f 1 | cut -d "/" -f 3)
     DISKID=$(ls -l /dev/disk/by-id | grep ${DISKPARTITION} | cut -d " " -f 9 | head -n 1 | cut -d "-" -f 1,2)
@@ -529,30 +513,31 @@ then
     && DISKSIZE=$(sudo smartctl -a /dev/${DISKMOUNT} | grep "Capacity" | head -n 1 | cut -d "[" -f 2 | cut -d " " -f 1)
   then
     echo "DISK: ${DISKMODEL} ${DISKSIZE}GB"
+    # Add disk information to HARDWAREINFORMATION array
+    HARDWAREINFORMATION+=("${DISKMODEL} ${DISKSIZE}GB")
   else
     echo "Disk information could not be collected!"
   fi
 
-  # Put CPU, RAM and Disk information into a separate CSV file for merging with main csv
-  echo "${CPU} ${CPUCORES}C/${CPUTHREADS}T, ${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED}, ${DISKMODEL} ${DISKSIZE}GB" >>$HARDWAREINFORMATIONCSV
 
   # Add hardware information to main csv file with a gap-row
-  if echo " " >>$CSVFILE && cat ${HARDWAREINFORMATIONCSV} >>$CSVFILE
+  if echo " " >>${RESULTSCSVFILE} && echo "CPU, RAM, DRIVE" >>${RESULTSCSVFILE} && echo ${HARDWAREINFORMATION[@]} >>${RESULTSCSVFILE}
   then
     echo "Hardware information added to main csv file!"
-    echo "Please provide ${CSVFILE} when submitting!"
-    if rm ${HARDWAREINFORMATIONCSV}
-    then
-      echo "Successfully removed ${HARDWAREINFORMATIONCSV}" >/dev/null
-    else
-      echo "Could not delete ${HARDWAREINFORMATIONCSV}!"
-    fi
+    echo "Please provide ${RESULTSCSVFILE} when submitting!"
   else
-    echo "Could not add hardware information to main csv file, please provide both ${HARDWAREINFORMATIONCSV} and ${CSVFILE} when submitting!"
+    echo "Adding Hardware information to separate csv file"
+    if echo "CPU, RAM, DRIVE" >>${BACKUPHARDWAREINFORMATIONCSV} && echo ${HARDWAREINFORMATION[@]} >>${BACKUPHARDWAREINFORMATIONCSV}
+    then
+      echo "Added hardware information to separate csv file"
+    else
+      echo "Could not add hardware information to separate csv file, please provide this information when submitting:"
+      echo "${CPU} ${CPUCORES}C/${CPUTHREADS}T, ${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED}, ${DISKMODEL} ${DISKSIZE}GB"
+    fi
+    echo "Could not add hardware information to main csv file, please provide both ${BACKUPHARDWAREINFORMATIONCSV} and ${RESULTSCSVFILE} when submitting!"
   fi
-
 else
-  echo 'The user did not accept, please use the command "dmidecode -t memory" and "smartctl -a /dev/YOURDRIVE" with elevated privileges to get the information needed.'
+  echo 'The user did not accept, please use the command "dmidecode -t memory" and "smartctl -a /dev/YOURDRIVE" with elevated privileges to get the information needed for submitting.'
 fi
 
 echo "-----------------------"
