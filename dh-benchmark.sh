@@ -465,9 +465,9 @@ fi
 # Add the db size of every run to the main csv file
 if echo ${DBSIZES[@]} >>${RESULTSCSVFILE}
 then
-  echo "Added run times to main csv file!"
+  echo "Added db sizes to main csv file!"
 else
-  echo "Could not add run times to main csv file."
+  echo "Could not add db sizes to main csv file."
   echo "Please provide this information when submitting:"
   echo ${DBSIZES[@]}
 fi
