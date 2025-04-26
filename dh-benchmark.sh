@@ -389,7 +389,7 @@ do
   fileCheck ${BUFFERFILE}
 
   # Wait for server to succesfully start
-  while ! grep -w "Done" <${BUFFERFILE} 
+  while ! grep -w "Done" <(tail -n 5 ${BUFFERFILE}) 
   do
     if test ${BUFFERCOUNTER} -lt 300
     then
@@ -408,14 +408,14 @@ do
   if screen -S ${SCREEN} -X stuff "dh pregen start minecraft:overworld 0 0 ${generation_radius}"^M
   then
     screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
-    while ! grep -w "Starting pregen" <${BUFFERFILE}
+    while ! grep -w "Starting pregen" <(tail -n 5 ${BUFFERFILE})
     do
       screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
       sleep 1s
     done
     SECONDS="0"
 
-    while ! grep -w "Pregen is complete" <${BUFFERFILE} >/dev/null
+    while ! grep -w "Pregen is complete" <(tail -n 5 ${BUFFERFILE}) >/dev/null
     do
       screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
       tail -n 3 <${BUFFERFILE} | grep "\n"
@@ -465,9 +465,9 @@ fi
 # Add the db size of every run to the main csv file
 if echo ${DBSIZES[@]} >>${RESULTSCSVFILE}
 then
-  echo "Added db sizes to main csv file!"
+  echo "Added run times to main csv file!"
 else
-  echo "Could not add db sizes to main csv file."
+  echo "Could not add run times to main csv file."
   echo "Please provide this information when submitting:"
   echo ${DBSIZES[@]}
 fi
