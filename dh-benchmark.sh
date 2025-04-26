@@ -340,7 +340,7 @@ worldDelete() {
   fi
 }
 
-fileCheck() {
+removeFileIfExists() {
   for FILE in $@
   do
     if test -s ${FILE}
@@ -386,7 +386,13 @@ do
   worldDelete
   screenStartServer
 
-  fileCheck ${BUFFERFILE}
+  removeFileIfExists ${BUFFERFILE}
+
+  # Wait for Server to fully start
+  sleep 10s
+
+  # Get a hardcopy from the screen before the first check to always have a file ready
+  screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
 
   # Wait for server to succesfully start
   while ! grep -w "Done" <(tail -n 5 ${BUFFERFILE}) 
