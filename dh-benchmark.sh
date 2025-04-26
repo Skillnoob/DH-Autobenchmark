@@ -101,25 +101,25 @@ configCheck() {
       echo "# DISTANT HORIZONS COMMUNITY AUTO-BENCHMARK-SCRIPT #" >>${CONFIG}
       echo "####################################################" >>${CONFIG}
       echo "" >>${CONFIG}
-      echo "-------------------" >>${CONFIG}
+      echo "#-------------------" >>${CONFIG}
       echo "# SERVER SETTINGS #" >>${CONFIG}
-      echo "-------------------" >>${CONFIG}
+      echo "#-------------------" >>${CONFIG}
       echo "" >>${CONFIG}
       echo "# RAM allocated to the server in GB. (Default: 8)" >>${CONFIG}
       echo 'ram_gb="8"' >>${CONFIG}
       echo "# Extra JVM arguments to pass to the server. (Default: None)" >>${CONFIG}
       echo 'extra_jvm_args=""' >>${CONFIG}
       echo "" >>${CONFIG}
-      echo "------------------" >>${CONFIG}
+      echo "#------------------" >>${CONFIG}
       echo "# WORLD SETTINGS #" >>${CONFIG}
-      echo "------------------" >>${CONFIG}
+      echo "#------------------" >>${CONFIG}
       echo "" >>${CONFIG}
       echo "# List of world seeds to use for the benchmark." >>${CONFIG}
       echo 'seeds=(5057296280818819649 2412466893128258733 3777092783861568240 -8505774097130463405 4753729061374190018)'>>${CONFIG}
       echo "" >>${CONFIG}
-      echo "---------------" >>${CONFIG}
+      echo "#---------------" >>${CONFIG}
       echo "# DH SETTINGS #" >>${CONFIG}
-      echo "---------------" >>${CONFIG}
+      echo "#---------------" >>${CONFIG}
       echo "" >>${CONFIG}
       echo "# This controls the Distant Horizons thread preset used when generating chunks. (Default: I_PAID_FOR_THE_WHOLE_CPU)" >>${CONFIG}
       echo "# Available Presets are: MINIMAL_IMPACT, LOW_IMPACT, BALANCED, AGGRESSIVE, I_PAID_FOR_THE_WHOLE_CPU." >>${CONFIG}
