@@ -395,7 +395,7 @@ do
   screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
 
   # Wait for server to succesfully start
-  while ! grep -w "Done" <(tail -n 5 ${BUFFERFILE}) 
+  while ! grep -w "Done" <(tail -n 20 ${BUFFERFILE}) 
   do
     if test ${BUFFERCOUNTER} -lt 300
     then
@@ -414,14 +414,14 @@ do
   if screen -S ${SCREEN} -X stuff "dh pregen start minecraft:overworld 0 0 ${generation_radius}"^M
   then
     screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
-    while ! grep -w "Starting pregen" <(tail -n 5 ${BUFFERFILE})
+    while ! grep -w "Starting pregen" <(tail -n 20 ${BUFFERFILE})
     do
       screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
       sleep 1s
     done
     SECONDS="0"
 
-    while ! grep -w "Pregen is complete" <(tail -n 5 ${BUFFERFILE}) >/dev/null
+    while ! grep -w "Pregen is complete" <(tail -n 20 ${BUFFERFILE}) >/dev/null
     do
       screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
       tail -n 3 <${BUFFERFILE} | grep "\n"
