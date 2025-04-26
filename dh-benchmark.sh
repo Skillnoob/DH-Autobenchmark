@@ -421,7 +421,7 @@ do
     done
     SECONDS="0"
 
-    while ! grep -w "Pregen is complete" <(tail -n 20 ${BUFFERFILE}) ${BUFFERFILE} >/dev/null
+    while ! grep -w "Pregen is complete" <(tail -n 20 ${BUFFERFILE}) ${BUFFERFILE} >/dev/null 2>/dev/null
     do
       screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
       tail -n 3 <${BUFFERFILE} | grep "\n"
