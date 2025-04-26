@@ -12,8 +12,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -64,15 +64,26 @@ public class Main {
             serverManager = new ServerManager(benchmarkConfig);
             List<String> serverCmd = serverManager.getServerStartCommand();
 
-            // If fabric isn't downloaded, download it and run once to accept the EULA and enable white-list.
-            if (DownloadManager.downloadFile(benchmarkConfig.fabricDownloadUrl(), SERVER_DIR, FABRIC_JAR)) {
-                System.out.println("Fabric downloaded successfully. Starting the server once to accept the EULA.");
+            if (!Files.exists(Paths.get(SERVER_DIR, FABRIC_JAR))) {
+                try (Scanner scanner = new Scanner(System.in)) {
+                    System.out.print("Do you agree to Mojang's EULA? (https://aka.ms/MinecraftEULA) (Yes/No): ");
+                    String eulaAnswer = scanner.nextLine();
 
-                serverManager.startServer(serverCmd);
-                serverManager.stopServer();
+                    if (eulaAnswer.equalsIgnoreCase("yes")) {
+                        System.out.println("EULA accepted. Downloading the server and accepting the EULA.");
+                        if (DownloadManager.downloadFile(benchmarkConfig.fabricDownloadUrl(), SERVER_DIR, FABRIC_JAR)) {
+                            System.out.println("Fabric downloaded successfully.");
+                            serverManager.startServer(serverCmd);
+                            serverManager.stopServer();
 
-                FileManager.updateConfigLine(Paths.get(SERVER_DIR, EULA_FILE), "eula", "eula=true");
-                FileManager.updateConfigLine(Paths.get(SERVER_DIR, SERVER_PROPERTIES_FILE), "white-list", "white-list=true");
+                            FileManager.updateConfigLine(Paths.get(SERVER_DIR, EULA_FILE), "eula", "eula=true");
+                            FileManager.updateConfigLine(Paths.get(SERVER_DIR, SERVER_PROPERTIES_FILE), "white-list", "white-list=true");
+                        }
+                    } else {
+                        System.err.println("You must agree to Mojang's EULA to run the server. Exiting.");
+                        System.exit(1);
+                    }
+                }
             }
 
             DownloadManager.downloadFile(benchmarkConfig.dhDownloadUrl(), MODS_DIR, DH_JAR);
