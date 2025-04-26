@@ -68,14 +68,14 @@ downloadIfNotExist() {
 
     if [[ -s "${2}" ]]; then
       echo "Download complete." >&2
-      echo "true"
+      echo "true" >/dev/null
     else
-      echo "false"
+      echo "false" >/dev/null
     fi
 
   else
     echo "${1} present." >&2
-    echo "false"
+    echo "false" >/dev/null
   fi
 }
 
