@@ -1,7 +1,6 @@
 package com.skillnoob.dh.benchmark.util;
 
 import com.electronwill.nightconfig.core.file.CommentedFileConfig;
-import com.electronwill.nightconfig.core.file.FileConfig;
 import com.skillnoob.dh.benchmark.Main;
 import com.skillnoob.dh.benchmark.data.BenchmarkConfig;
 import com.skillnoob.dh.benchmark.data.BenchmarkResult;
@@ -109,9 +108,9 @@ public class FileManager {
     }
 
     /**
-     * Helper method to set a default value in the config if the key is missing.
+     * Set a default value in the config if the key is missing.
      */
-    private static <T> void setDefaultIfMissing(FileConfig config, String key, T defaultValue) {
+    private static <T> void setDefaultIfMissing(CommentedFileConfig config, String key, T defaultValue) {
         if (!config.contains(key)) {
             config.set(key, defaultValue);
         }
