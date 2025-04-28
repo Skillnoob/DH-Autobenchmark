@@ -5,7 +5,7 @@ This is a benchmarking tool for the [Distant Horizons](https://modrinth.com/mod/
 
 ## JAR - All Platforms (Recommended)
 The config file is named `dh-benchmark.toml` and is located in the same directory as the JAR file. It gets generated the first time the JAR is run.
-1. **Install Java**
+1. **Install Java**\
    Make sure you have JDK 21 installed. You can download it from the [Adoptium website](https://adoptium.net/temurin/releases/?version=21), or use a package manager like [sdkman](https://sdkman.io/) (Linux) or [brew](https://brew.sh/) (MacOS).
 2. **Download the JAR File**  
    Download the latest JAR file from the [releases page](https://github.com/Skillnoob/DH-Autobenchmark/releases)
@@ -63,7 +63,7 @@ The config file is named `dh-automation.config` and is located in the same direc
 
 # Building from Source
 
-1. **Install Java**
+1. **Install Java**\
    Make sure you have JDK 21 installed. You can download it from the [Adoptium website](https://adoptium.net/temurin/releases/?version=21), or use a package manager like [sdkman](https://sdkman.io/) or [brew](https://brew.sh/).
 2. **Clone the Repository**  
    Open a terminal and run the following command to clone the repository:
