@@ -20,10 +20,14 @@ BUFFERCOUNTER="1"
 RUN="1"
 BENCHMARKTIME_SECONDS="do_not_edit"
 RESULTSCSVFILE="${DIR}/benchmark-results.csv"
-BUFFERFILE="${DIR}/dh-automation-screen-buffer.txt"
+LATESTLOG="${DIR}/logs/latest.log"
 BACKUPHARDWAREINFORMATIONCSV="${DIR}/hardware-information.csv"
 RUNTIMES=()
 DBSIZES=()
+# Start value for the ProgressBar function
+_start=0
+# This accounts as the "totalState" variable for the ProgressBar function
+_end=100
 
 
 ## EXIT CODES ##
@@ -36,8 +40,6 @@ DBSIZES=()
 # 7 = Server did not start correctly
 # 8 = A File could not be deleted or overwritten
 # 9 = Not able to delete world folder
-
-
 
 
 # commandAvailable(command)
@@ -235,7 +237,7 @@ benchmarkResultsCSVCreate() {
 downloadFabricAndDistantHorizons() {
   downloadIfNotExist ${DIR}/fabricserver.jar ${DIR}/fabricserver.jar ${fabric_download_url}
   
-  if test -d ${DIR}/mods/
+  if test -d ${DIR}/mods
   then
     echo "mods folder exists" >/dev/null
   else
@@ -279,47 +281,54 @@ eulaCheck() {
 screenStartServer() {
   echo "Starting Server!"
   screen -d -m -S ${SCREEN} java -Xmx${ram_gb}G ${extra_jvm_args} -jar ${DIR}/fabricserver.jar nogui &
+  # Wait for the server to generate a new 'latest.log'
+  sleep 2s
 }
 
 setSeed() {
-if test ${1} -le ${#seeds[@]} && test ${1} -gt 0
-then
-  echo "level-seed=${seeds[$((${1}-1))]}" >>${SERVERPROPERTIES}
-else
-  echo "Seed #${1} does not exist!"
-  exit 5
-fi
+  if test ${1} -le ${#seeds[@]} && test ${1} -gt 0
+  then
+    echo "level-seed=${seeds[$((${1}-1))]}" >>${SERVERPROPERTIES}
+  else
+    echo "Seed #${1} does not exist!"
+    exit 5
+  fi
 }
 
 setThreadPreset() {
   if screen -S $SCREEN -X stuff "dh config common.threadPreset ${thread_preset}"^M
   then
-    echo "Set Thread Preset to ${thread_preset}"
+    # Wait for the thread preset to be active
+    while ! grep -w "preset active: $thread_preset" <${LATESTLOG} >/dev/null
+  do
+    sleep 1s
+  done
+    echo "Set Thread Preset to ${thread_preset}" 
   else
     echo "Could not set common.threadPreset to ${thread_preset}"
     exit 6
   fi
-  # Wait five seconds so that the server can set the thread preset
-  sleep 5s
+  # Wait another two seconds to prevent the pregen of instantly being queued when the threadPreset is being set
+  sleep 2s
 }
 
 stopServer() {
   screen -S ${SCREEN} -X stuff "/stop^M"
 
-sleep 3s
-STOPCOUNTER="0"
+  sleep 3s 
+  STOPCOUNTER="0"
 
-while screen -ls | grep -w ${SCREEN} >/dev/null
-do
-  if test ${STOPCOUNTER} -ge 60
-  then
-    echo "Server did not stop gracefully, force closing server..."
-    screen -S ${SCREEN} -X kill
-  else
-    echo "Waiting for Server to stop..."
-  fi
-    sleep 1s
-done
+  while screen -ls | grep -w ${SCREEN} >/dev/null
+  do
+    if test ${STOPCOUNTER} -ge 60
+    then
+      echo "Server did not stop gracefully, force closing server..."
+      screen -S ${SCREEN} -X kill
+    else
+      echo "Waiting for Server to stop..."
+    fi
+      sleep 1s
+  done
 
   echo "Server stopped!"
 }
@@ -365,7 +374,122 @@ removeFileIfExists() {
   done
 }
 
+# 1. Create ProgressBar function
+# 1.1 Input is currentState($1) and totalState($2)
+function ProgressBar {
+  # Process data
+  if test ${1} = "0"
+  then
+    _progress="0"
+    _fill=""
+    _empty="----------------------------------------"
+  else
+      let _progress=(${1}*100/${2}*100)/100 
+      let _done=(${_progress}*4)/10 
+      let _left=40-$_done 
+  # Build progressbar string lengths
+      _fill=$(printf "%${_done}s")
+      _empty=$(printf "%${_left}s")
+  fi
+  # 1.2 Build progressbar strings and print the ProgressBar line
+  # 1.2.1 Output example:
+  # 1.2.1.1 Progress : [########################################] 100%
+  printf "\rProgress : [${_fill// /#}${_empty// /-}] ${_progress}%%"
+
+}
+
+collectHardwareInformation() {
+  # Hardware Information #
+  HARDWAREINFORMATION=()
+  # Data preparation
+  echo "Collecting CPU information..."
+  CPU=$(lscpu | grep 'Model name' | cut -f 2 -d ":" | awk '{$1=$1}1')
+  CPUCORES=$(lscpu | awk '/^Socket\(s\):/ {sockets=$2} /^Core\(s\) per socket:/ {cores=$4} END {print sockets * cores}')
+  CPUTHREADS=$(nproc --all)
+  echo "CPU: ${CPU} ${CPUCORES}C/${CPUTHREADS}T"
+  # Add CPU information to HARDWAREINFORMATION array
+  HARDWAREINFORMATION+=("${CPU} ${CPUCORES}C/${CPUTHREADS}T,")
+
+  read -r -p "The following commands have to be executed with elevated privileges to get the full data automatically, you may be asked multiple times, do you agree? (Yes/No): " ANSWERHARDWAREDATA
+  if test ${ANSWERHARDWAREDATA} == "Yes"
+  then
+    echo 'Please make sure that the package "dmidecode" is installed with your linux system otherwise the following data collection will not work.'
+    sleep 3s
+    # Collect RAM information
+    echo "Collecting RAM information..."
+      RAMSIZEONCE=$(sudo dmidecode -t memory | grep -w "Size" | grep -w "GB" | cut -d " " -f 2 | head -n 1)
+      RAMSTICKSDOUBLE=$(sudo dmidecode -t memory | grep -w "Size" | grep -w "GB" | wc -l)
+      RAMSTICKS=$((RAMSTICKSDOUBLE / 2))
+    if RAMSIZETOTAL=$((RAMSIZEONCE * RAMSTICKS)) \
+      && RAMTYPE=$(sudo dmidecode -t memory | grep "DDR" | cut -d " " -f 2 | head -n 1) \
+      && RAMSPEED=$(sudo dmidecode -t memory | grep "Configured Memory Speed" | cut -d " " -f 4,5 | head -n 1) 
+    then
+      echo "RAM: ${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED}"
+      # Add RAM information to HARDWAREINFORMATION array
+      HARDWAREINFORMATION+=("${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED},")
+    else
+      echo "RAM information could not be collected!"
+    fi
+    # Collect disk information
+    echo "Collecting Disk information..."
+      DISKPARTITION=$(df ${DIR} | grep dev | cut -d " " -f 1 | cut -d "/" -f 3)
+      DISKID=$(ls -l /dev/disk/by-id | grep ${DISKPARTITION} | cut -d " " -f 9 | head -n 1 | cut -d "-" -f 1,2)
+      DISKMOUNT=$(ls -l /dev/disk/by-id | grep ${DISKID} | head -n 1 | cut -d ">" -f 2 | cut -d "/" -f 3)
+    if DISKMODEL=$(sudo smartctl -a /dev/${DISKMOUNT} | grep "Model Number" | tr -s " " | cut -d ":" -f 2 | tr -d " ") \
+      && DISKSIZE=$(sudo smartctl -a /dev/${DISKMOUNT} | grep "Capacity" | head -n 1 | cut -d "[" -f 2 | cut -d " " -f 1)
+    then
+      echo "DISK: ${DISKMODEL} ${DISKSIZE}GB"
+      # Add disk information to HARDWAREINFORMATION array
+      HARDWAREINFORMATION+=("${DISKMODEL} ${DISKSIZE}GB")
+    else
+      echo "Disk information could not be collected!"
+    fi
+
+
+    # Add hardware information to main csv file with a gap-row
+    if echo " " >>${RESULTSCSVFILE} && echo "CPU, RAM, DRIVE" >>${RESULTSCSVFILE} && echo ${HARDWAREINFORMATION[@]} >>${RESULTSCSVFILE}
+    then
+      echo "Hardware information added to main csv file!"
+      echo "Please provide ${RESULTSCSVFILE} when submitting!"
+    else
+      echo "Adding Hardware information to separate csv file"
+      if echo "CPU, RAM, DRIVE" >>${BACKUPHARDWAREINFORMATIONCSV} && echo ${HARDWAREINFORMATION[@]} >>${BACKUPHARDWAREINFORMATIONCSV}
+      then
+        echo "Added hardware information to separate csv file"
+      else
+        echo "Could not add hardware information to separate csv file, please provide this information when submitting:"
+        echo "${CPU} ${CPUCORES}C/${CPUTHREADS}T, ${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED}, ${DISKMODEL} ${DISKSIZE}GB"
+      fi
+      echo "Could not add hardware information to main csv file, please provide both ${BACKUPHARDWAREINFORMATIONCSV} and ${RESULTSCSVFILE} when submitting!"
+    fi
+  else
+    echo 'The user did not accept, please use the command "dmidecode -t memory" and "smartctl -a /dev/YOURDRIVE" with elevated privileges to get the information needed for submitting.'
+  fi
+
+  echo "-----------------------"
+  echo "- The Script finished -"
+  echo "-----------------------"
+
+  exit 0
+}
+
+
+
 ## Main structure
+
+# Check for options first
+while getopts ":h" OPTION
+do
+  case $OPTION in
+    h)
+      collectHardwareInformation
+    exit;;
+    *)
+      echo "Invalid option: $OPTION"
+    exit;;
+  esac
+
+done
 
 # Check for dh-automation.config
 configCheck
@@ -375,6 +499,7 @@ source ${CONFIG}
 # Check for screen, fabricserver.jar and Distant Horizons mod file 
 screenCheck
 downloadFabricAndDistantHorizons
+# Check if eula exists and if not ask the user to accept it
 eulaCheck
 
 # Five runs (one for every seed)
@@ -385,21 +510,13 @@ do
   # Delete previous world
   worldDelete
   screenStartServer
-
-  removeFileIfExists ${BUFFERFILE}
-
-  # Wait for Server to fully start
-  sleep 2s
-
-  # Get a hardcopy from the screen before the first check to always have a file ready
-  screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
+  
 
   # Wait for server to succesfully start
-  while ! grep -w "Done" <(tail -n 20 ${BUFFERFILE}) ${BUFFERFILE}
+  while ! grep -w "Done" <${LATESTLOG} 2>/dev/null
   do
     if test ${BUFFERCOUNTER} -lt 300
     then
-      screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
       BUFFERCOUNTER=$((++BUFFERCOUNTER))
       sleep 1s
     else
@@ -413,23 +530,21 @@ do
   echo "Starting Pregen Run ${RUN} with radius ${generation_radius} for seed ${seeds[$((${RUN}-1))]}"
   if screen -S ${SCREEN} -X stuff "dh pregen start minecraft:overworld 0 0 ${generation_radius}"^M
   then
-    screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
-    while ! grep -w "Starting pregen" <(tail -n 20 ${BUFFERFILE}) ${BUFFERFILE}
-    do
-      screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
+    while ! grep -w "Starting pregen" <${LATESTLOG}
+    do 
       sleep 1s
     done
     SECONDS="0"
-
-    while ! grep -w "Pregen is complete" <(tail -n 20 ${BUFFERFILE}) ${BUFFERFILE} >/dev/null 2>/dev/null
+    
+    while ! grep -w "Pregen is complete" <${LATESTLOG} >/dev/null 2>/dev/null
     do
-      screen -S ${SCREEN} -X hardcopy ${BUFFERFILE}
-      tail -n 3 <${BUFFERFILE} | grep "\n"
-      sleep 1s
+      PERCENTFINISHED=$(tail -n 1 <${LATESTLOG} | cut -d "%" -f 1 | cut -d " " -f 12 | cut -d "." -f 1)
+      ProgressBar ${PERCENTFINISHED} ${_end}
+      sleep 3s
     done
 
     BENCHMARKTIME_SECONDS=${SECONDS}
-    echo "Pregen for Run ${RUN} completed in $(( (BENCHMARKTIME_SECONDS / 60) / 60 )) hours, $((BENCHMARKTIME_SECONDS / 60)) minutes and $((BENCHMARKTIME_SECONDS % 60)) seconds!"
+    echo -e "\n Pregen for Run ${RUN} completed in $(( (BENCHMARKTIME_SECONDS / 60) / 60 )) hours, $((BENCHMARKTIME_SECONDS / 60)) minutes and $((BENCHMARKTIME_SECONDS % 60)) seconds!"
     echo "Shutting down server"
 
     stopServer
@@ -478,76 +593,8 @@ else
   echo ${DBSIZES[@]}
 fi
 
-
-# Hardware Information #
-HARDWAREINFORMATION=()
-# Data preparation
-echo "Collecting CPU information..."
-CPU=$(lscpu | grep 'Model name' | cut -f 2 -d ":" | awk '{$1=$1}1')
-CPUCORES=$(lscpu | awk '/^Socket\(s\):/ {sockets=$2} /^Core\(s\) per socket:/ {cores=$4} END {print sockets * cores}')
-CPUTHREADS=$(nproc --all)
-echo "CPU: ${CPU} ${CPUCORES}C/${CPUTHREADS}T"
-# Add CPU information to HARDWAREINFORMATION array
-HARDWAREINFORMATION+=("${CPU} ${CPUCORES}C/${CPUTHREADS}T,")
-
-read -r -p "The following commands have to be executed with elevated privileges to get the full data automatically, you may be asked multiple times, do you agree? (Yes/No): " ANSWERHARDWAREDATA
-if test ${ANSWERHARDWAREDATA} == "Yes"
-then
-  echo 'Please make sure that the package "dmidecode" is installed with your linux system otherwise the following data collection will not work.'
-  sleep 3s
-  # Collect RAM information
-  echo "Collecting RAM information..."
-    RAMSIZEONCE=$(sudo dmidecode -t memory | grep -w "Size" | grep -w "GB" | cut -d " " -f 2 | head -n 1)
-    RAMSTICKSDOUBLE=$(sudo dmidecode -t memory | grep -w "Size" | grep -w "GB" | wc -l)
-    RAMSTICKS=$((${RAMSTICKSDOUBLE} / 2))
-  if RAMSIZETOTAL=$((${RAMSIZEONCE} * ${RAMSTICKS})) \
-    && RAMTYPE=$(sudo dmidecode -t memory | grep "DDR" | cut -d " " -f 2 | head -n 1) \
-    && RAMSPEED=$(sudo dmidecode -t memory | grep "Configured Memory Speed" | cut -d " " -f 4,5 | head -n 1) 
-  then
-    echo "RAM: ${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED}"
-    # Add RAM information to HARDWAREINFORMATION array
-    HARDWAREINFORMATION+=("${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED},")
-  else
-    echo "RAM information could not be collected!"
-  fi
-  # Collect disk information
-  echo "Collecting Disk information..."
-    DISKPARTITION=$(df ${DIR} | grep dev | cut -d " " -f 1 | cut -d "/" -f 3)
-    DISKID=$(ls -l /dev/disk/by-id | grep ${DISKPARTITION} | cut -d " " -f 9 | head -n 1 | cut -d "-" -f 1,2)
-    DISKMOUNT=$(ls -l /dev/disk/by-id | grep ${DISKID} | head -n 1 | cut -d ">" -f 2 | cut -d "/" -f 3)
-  if DISKMODEL=$(sudo smartctl -a /dev/${DISKMOUNT} | grep "Model Number" | tr -s " " | cut -d ":" -f 2 | tr -d " ") \
-    && DISKSIZE=$(sudo smartctl -a /dev/${DISKMOUNT} | grep "Capacity" | head -n 1 | cut -d "[" -f 2 | cut -d " " -f 1)
-  then
-    echo "DISK: ${DISKMODEL} ${DISKSIZE}GB"
-    # Add disk information to HARDWAREINFORMATION array
-    HARDWAREINFORMATION+=("${DISKMODEL} ${DISKSIZE}GB")
-  else
-    echo "Disk information could not be collected!"
-  fi
+collectHardwareInformation
 
 
-  # Add hardware information to main csv file with a gap-row
-  if echo " " >>${RESULTSCSVFILE} && echo "CPU, RAM, DRIVE" >>${RESULTSCSVFILE} && echo ${HARDWAREINFORMATION[@]} >>${RESULTSCSVFILE}
-  then
-    echo "Hardware information added to main csv file!"
-    echo "Please provide ${RESULTSCSVFILE} when submitting!"
-  else
-    echo "Adding Hardware information to separate csv file"
-    if echo "CPU, RAM, DRIVE" >>${BACKUPHARDWAREINFORMATIONCSV} && echo ${HARDWAREINFORMATION[@]} >>${BACKUPHARDWAREINFORMATIONCSV}
-    then
-      echo "Added hardware information to separate csv file"
-    else
-      echo "Could not add hardware information to separate csv file, please provide this information when submitting:"
-      echo "${CPU} ${CPUCORES}C/${CPUTHREADS}T, ${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED}, ${DISKMODEL} ${DISKSIZE}GB"
-    fi
-    echo "Could not add hardware information to main csv file, please provide both ${BACKUPHARDWAREINFORMATIONCSV} and ${RESULTSCSVFILE} when submitting!"
-  fi
-else
-  echo 'The user did not accept, please use the command "dmidecode -t memory" and "smartctl -a /dev/YOURDRIVE" with elevated privileges to get the information needed for submitting.'
-fi
-
-echo "-----------------------"
-echo "- The Script finished -"
-echo "-----------------------"
 
 
