@@ -23,16 +23,17 @@ public class DownloadManager {
         FileManager.ensureDirectoryExists(savePath);
 
         System.out.println("Downloading " + fileName + " from " + url + ".");
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).build();
-        HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
-        if (response.statusCode() == 200) {
-            Files.write(path, response.body());
-            System.out.println("Downloaded " + fileName + " successfully.");
-            return true;
-        } else {
-            System.err.println("Failed to download " + fileName + " (status code " + response.statusCode() + ").");
-            return false;
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).build();
+            HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() == 200) {
+                Files.write(path, response.body());
+                System.out.println("Downloaded " + fileName + " successfully.");
+                return true;
+            } else {
+                System.err.println("Failed to download " + fileName + " (status code " + response.statusCode() + ").");
+                return false;
+            }
         }
     }
 }
