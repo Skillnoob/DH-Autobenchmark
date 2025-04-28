@@ -4,7 +4,7 @@ This is a benchmarking tool for the [Distant Horizons](https://modrinth.com/mod/
 # Running the Application
 
 ## JAR - All Platforms (Recommended)
-The config file is named `dh-benchmark.toml` and is located in the same directory as the JAR file. It gets generated the first time the JAR is run.\
+The config file is named `dh-benchmark.toml` and is located in the same directory as the JAR file. It gets generated the first time the JAR is run.
 1. **Install Java**
    Make sure you have JDK 21 installed. You can download it from the [Adoptium website](https://adoptium.net/temurin/releases/?version=21), or use a package manager like [sdkman](https://sdkman.io/) (Linux) or [brew](https://brew.sh/) (MacOS).
 2. **Download the JAR File**  
@@ -29,7 +29,7 @@ The config file is named `dh-benchmark.toml` and is located in the same director
    ```
 
 ## Bash Script - Linux only
-The config file is named `dh-automation.config` and is located in the same directory as the script. It gets generated the first time the script is run, but the script will ask if you want to edit it.\
+The config file is named `dh-automation.config` and is located in the same directory as the script. It gets generated the first time the script is run, but the script will ask if you want to edit it.
 1. **Install screen**  
    Make sure you have `screen` installed. You can install it using your package manager.\
    Debian/Ubuntu:
