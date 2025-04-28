@@ -1,9 +1,9 @@
 # Distant Horizons Auto Benchmark
 This is a benchmarking tool for the [Distant Horizons](https://modrinth.com/mod/distanthorizons) mod. It runs a set of pregeneration tasks on a list of seeds and collects the time and DB sizes in a results csv.
 
-## Running the Application
+# Running the Application
 
-### JAR - All Platforms (Recommended)
+## JAR - All Platforms (Recommended)
 The config file is named `dh-benchmark.toml` and is located in the same directory as the JAR file. It gets generated the first time the JAR is run.\
 1. **Install Java**
    Make sure you have JDK 21 installed. You can download it from the [Adoptium website](https://adoptium.net/temurin/releases/?version=21), or use a package manager like [sdkman](https://sdkman.io/) (Linux) or [brew](https://brew.sh/) (MacOS).
@@ -19,7 +19,7 @@ The config file is named `dh-benchmark.toml` and is located in the same director
 5. **View Results**  
    After the benchmark is complete, you can view the results in the `benchmark-results.csv`.
 6. **Hardware Information**
-   Run the following command to append hardware information to the results file:
+   Run the following command to append hardware information to the result file:
     ```bash
     java -jar DH-Autobenchmark-x.x.jar --collect-hardware-info
     ```
@@ -28,7 +28,7 @@ The config file is named `dh-benchmark.toml` and is located in the same director
     sudo java -jar DH-Autobenchmark-x.x.jar --collect-hardware-info
    ```
 
-### Bash Script - Linux only
+## Bash Script - Linux only
 The config file is named `dh-automation.config` and is located in the same directory as the script. It gets generated the first time the script is run, but the script will ask if you want to edit it.\
 1. **Install screen**  
    Make sure you have `screen` installed. You can install it using your package manager.\
@@ -61,7 +61,7 @@ The config file is named `dh-automation.config` and is located in the same direc
 5. **Follow the Instructions**\
    The application will guide you through the process of running the benchmark.
 
-## Building from Source
+# Building from Source
 
 1. **Install Java**
    Make sure you have JDK 21 installed. You can download it from the [Adoptium website](https://adoptium.net/temurin/releases/?version=21), or use a package manager like [sdkman](https://sdkman.io/) or [brew](https://brew.sh/).
