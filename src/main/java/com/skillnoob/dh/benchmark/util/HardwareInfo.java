@@ -73,9 +73,13 @@ public class HardwareInfo {
         return String.format("%s %s%s", sizeString, memoryType, memorySpeed);
     }
 
+    // Gets the drive model the program is run from
     private static String getCurrentDriveModel() {
         Path currentPath = Paths.get(".").toAbsolutePath();
 
+        // This iterates over every partition on every drive and finds the longest mount point
+        // that matches the current path.
+        // Reason being that for example, "/" would match "/mnt/drive1"
         return systemInfo.getHardware().getDiskStores().stream()
                 .flatMap(disk -> disk.getPartitions().stream()
                         .filter(part -> part.getMountPoint() != null)
@@ -86,9 +90,9 @@ public class HardwareInfo {
                                 final String model = disk.getModel();
                             };
                         }))
-                .filter(item -> currentPath.toString().startsWith(item.mountPoint))
-                .max((a, b) -> a.mountPoint.length() - b.mountPoint.length())
-                .map(item -> item.model)
+                .filter(part -> currentPath.toString().startsWith(part.mountPoint))
+                .max((partA, partB) -> partA.mountPoint.length() - partB.mountPoint.length())
+                .map(part -> part.model)
                 .orElse("Unknown");
     }
 
