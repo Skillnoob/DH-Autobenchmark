@@ -39,6 +39,7 @@ bin/
 .DS_Store
 
 ### DH-Benchmark ###
-/server/
+server/
+custom_datapacks/
 dh-benchmark.toml
 benchmark-results.csv
