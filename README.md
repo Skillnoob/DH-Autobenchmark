@@ -1,5 +1,8 @@
 # Distant Horizons Auto Benchmark
-This is a benchmarking tool for the [Distant Horizons](https://modrinth.com/mod/distanthorizons) mod. It runs a set of pregeneration tasks on a list of seeds and collects the time and DB sizes in a results csv.
+This is a benchmarking tool for the [Distant Horizons](https://modrinth.com/mod/distanthorizons) mod,
+meant to be used for the [Distant Horizons Community Benchmarks](https://docs.google.com/spreadsheets/d/1lFO4bC4OhHHCC6eqGjNbNlcj6OotxNAJ4mKBT396Wx8/edit?gid=703766985#gid=703766985).
+The program automatically runs pregeneration tasks using the Distant Horizons server functionality on a set of seeds and collects the results in a csv.\
+This project is in no way affiliated with the developers of [Distant Horizons](https://modrinth.com/mod/distanthorizons).
 
 # Running the Application
 

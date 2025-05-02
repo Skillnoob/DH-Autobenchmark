@@ -135,6 +135,7 @@ public class Main {
             FileManager.deleteDirectory(worldDir);
         }
 
+        // Copy over any datapacks
         FileManager.copyDatapacks(DATAPACK_DIR, WORLD_DATAPACK_DIR);
 
         // Select the seed.
