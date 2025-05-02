@@ -43,7 +43,7 @@ public class ServerManager {
 
         logMonitor = new LogMonitor(processReader);
 
-        return waitForLogMessage(line -> line.contains("Done"), 60);
+        return waitForLogMessage(line -> line.contains("Done"), 120);
     }
 
     /**
