@@ -19,12 +19,14 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class Main {
     private static final String SERVER_DIR = "server";
+    private static final String DATAPACK_DIR = "custom_datapacks";
     private static final String FABRIC_JAR = "fabric-server.jar";
     private static final String DH_JAR = "distant-horizons.jar";
     private static final String SERVER_PROPERTIES_FILE = "server.properties";
     private static final String EULA_FILE = "eula.txt";
     private static final String MODS_DIR = Paths.get(SERVER_DIR, "mods").toString();
     private static final String WORLD_DIR = Paths.get(SERVER_DIR, "world").toString();
+    private static final String WORLD_DATAPACK_DIR = Paths.get(WORLD_DIR, "datapacks").toString();
     private static final String DATA_DIR = Paths.get(WORLD_DIR, "data").toString();
     private static final String DH_DB_FILE = Paths.get(DATA_DIR, "DistantHorizons.sqlite").toString();
 
@@ -132,6 +134,9 @@ public class Main {
         if (Files.exists(worldDir)) {
             FileManager.deleteDirectory(worldDir);
         }
+
+        FileManager.copyDatapacks(DATAPACK_DIR, WORLD_DATAPACK_DIR);
+
         // Select the seed.
         FileManager.updateConfigLine(Paths.get(SERVER_DIR, SERVER_PROPERTIES_FILE), "level-seed", "level-seed=" + seed);
 

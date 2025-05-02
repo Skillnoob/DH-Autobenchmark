@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -24,7 +25,7 @@ public class FileManager {
     private static final List<String> DEFAULT_SEEDS = List.of("5057296280818819649", "2412466893128258733", "3777092783861568240", "-8505774097130463405", "4753729061374190018");
     private static final String DEFAULT_THREAD_PRESET = "I_PAID_FOR_THE_WHOLE_CPU";
     private static final int DEFAULT_GENERATION_RADIUS = 256;
-    private static final String DEFAULT_FABRIC_DOWNLOAD_URL = "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.13/1.0.3/server/jar";
+    private static final String DEFAULT_FABRIC_DOWNLOAD_URL = "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.14/1.0.3/server/jar";
     private static final String DEFAULT_DH_DOWNLOAD_URL = "https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar";
     private static final List<String> DEFAULT_EXTRA_JVM_ARGS = new ArrayList<>();
 
@@ -218,6 +219,45 @@ public class FileManager {
             }
         }
         Files.write(filePath, newLines, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Copies datapack files from the "custom-datapacks" directory to the world datapack directory.
+     */
+    public static void copyDatapacks(String sourceDir, String targetDir) throws IOException {
+        Path sourcePath = Paths.get(sourceDir);
+        Path targetPath = Paths.get(targetDir);
+
+        ensureDirectoryExists(sourceDir);
+        ensureDirectoryExists(targetDir);
+
+        if (Files.list(sourcePath).findFirst().isEmpty()) {
+            System.out.println("No datapack files found in: " + sourceDir);
+            return;
+        }
+
+        try (Stream<Path> paths = Files.walk(sourcePath)) {
+            paths.filter(path -> !path.equals(sourcePath))  // Skip the root directory itself
+                    .forEach(source -> {
+                        Path relativePath = sourcePath.relativize(source);
+                        Path target = targetPath.resolve(relativePath);
+
+                        try {
+                            if (Files.isDirectory(source)) {
+                                Files.createDirectories(target);
+                            } else {
+                                // Ensure parent directories exist
+                                Files.createDirectories(target.getParent());
+                                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                                System.out.println("Copied datapack file: " + relativePath);
+                            }
+                        } catch (IOException e) {
+                            System.err.println("Failed to copy " + relativePath + ": " + e.getMessage());
+                        }
+                    });
+        }
+
+        System.out.println("Datapacks copied from " + sourceDir + " to " + targetDir);
     }
 }
 
