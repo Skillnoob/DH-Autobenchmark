@@ -28,6 +28,8 @@ DBSIZES=()
 _start=0
 # This accounts as the "totalState" variable for the ProgressBar function
 _end=100
+CUSTOMDATAPACKFOLDER="${DIR}/custom_datapacks"
+DATAPACKFOLDER="${DIR}/world/datapacks"
 
 
 ## EXIT CODES ##
@@ -76,7 +78,7 @@ downloadIfNotExist() {
     fi
 
   else
-    echo "${1} present." >&2
+    echo "${1} present." 1>/dev/null 2>/dev/null
     echo "false" >/dev/null
   fi
 }
@@ -398,6 +400,45 @@ function ProgressBar {
 
 }
 
+
+getDatapacksIfExist() {
+
+if test -d ${CUSTOMDATAPACKFOLDER}
+then
+  echo "${CUSTOMDATAPACKFOLDER} folder exists" >/dev/null
+  if test -n "$(ls ${CUSTOMDATAPACKFOLDER} 2>/dev/null)" 
+  then
+    echo "Datapacks exist, moving them" >/dev/null
+
+    if mkdir -p ${DATAPACKFOLDER}
+    then
+      echo "created ${DATAPACKFOLDER}" >/dev/null
+    else
+      echo "Could not create ${DATAPACKFOLDER}"
+      echo "Using Vanilla world generation"
+      # Exit the function since datapacks cannot be added
+      return 1
+    fi
+
+    for datapack in $(ls ${CUSTOMDATAPACKFOLDER})
+    do
+      if cp ${CUSTOMDATAPACKFOLDER}/${datapack} ${DATAPACKFOLDER}
+      then
+        echo "Successfully copied ${datapack}"
+      else
+        echo "Could not copy ${datapack}"
+      fi
+    done
+  else
+    echo "There are no datapacks in ${CUSTOMDATAPACKFOLDER}, did you forget to delete the folder?"
+  fi
+else
+  echo "${CUSTOMDATAPACKFOLDER} folder does not exist, datapacks will not be used."
+fi
+
+}
+
+
 collectHardwareInformation() {
   # Hardware Information #
   HARDWAREINFORMATION=()
@@ -488,7 +529,6 @@ do
       echo "Invalid option: $OPTION"
     exit;;
   esac
-
 done
 
 # Check for dh-automation.config
@@ -509,6 +549,7 @@ do
   setSeed ${RUN}
   # Delete previous world
   worldDelete
+  getDatapacksIfExist
   screenStartServer
   
 
@@ -538,7 +579,7 @@ do
     
     while ! grep -w "Pregen is complete" <${LATESTLOG} >/dev/null 2>/dev/null
     do
-      PERCENTFINISHED=$(tail -n 1 <${LATESTLOG} | cut -d "%" -f 1 | cut -d " " -f 12 | cut -d "." -f 1)
+      PERCENTFINISHED=$(grep -w "Generated radius" <${LATESTLOG} | tail -n 1 | cut -d "%" -f 1 | cut -d " " -f 12 | cut -d "." -f 1)
       ProgressBar ${PERCENTFINISHED} ${_end}
       sleep 3s
     done
@@ -594,7 +635,3 @@ else
 fi
 
 collectHardwareInformation
-
-
-
-
