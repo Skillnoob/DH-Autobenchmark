@@ -59,7 +59,7 @@ public class HardwareInfo {
         // Memory type, MacOS doesn't give us this either
         String memoryType = modules.stream()
                 .map(PhysicalMemory::getMemoryType)
-                .filter(t -> t != null && !t.equalsIgnoreCase("Unknown") && !t.isBlank())
+                .filter(type -> type != null && !type.equalsIgnoreCase("Unknown") && !type.isBlank())
                 .findFirst().orElse("DDR?");
 
         // As usual, MacOS says no to memory speed
