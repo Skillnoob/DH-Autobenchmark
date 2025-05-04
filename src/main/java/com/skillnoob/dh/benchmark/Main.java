@@ -84,6 +84,7 @@ public class Main {
                         System.out.println("EULA accepted. Downloading the server and accepting the EULA.");
                         if (DownloadManager.downloadFile(benchmarkConfig.fabricDownloadUrl(), SERVER_DIR, FABRIC_JAR)) {
                             System.out.println("Fabric downloaded successfully.");
+                            System.out.println("Starting server to generate eula.txt and server.properties...");
                             serverManager.startServer(serverCmd);
                             serverManager.stopServer();
 
