@@ -28,6 +28,7 @@ public class FileManager {
     private static final String DEFAULT_FABRIC_DOWNLOAD_URL = "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.14/1.0.3/server/jar";
     private static final String DEFAULT_DH_DOWNLOAD_URL = "https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar";
     private static final List<String> DEFAULT_EXTRA_JVM_ARGS = new ArrayList<>();
+    private static final boolean DEFAULT_DEBUG_MODE = false;
 
     /**
      * Loads the benchmark configuration from a TOML file using NightConfig.
@@ -36,7 +37,6 @@ public class FileManager {
         try (CommentedFileConfig config = CommentedFileConfig.builder(CONFIG_FILE).preserveInsertionOrder().autosave().build()) {
             config.load();
 
-            // Set default values if not present
             setDefaultIfMissing(config, "ram_gb", DEFAULT_RAM_GB);
             setDefaultIfMissing(config, "seeds", DEFAULT_SEEDS);
             setDefaultIfMissing(config, "thread_preset", DEFAULT_THREAD_PRESET);
@@ -44,6 +44,7 @@ public class FileManager {
             setDefaultIfMissing(config, "fabric_download_url", DEFAULT_FABRIC_DOWNLOAD_URL);
             setDefaultIfMissing(config, "dh_download_url", DEFAULT_DH_DOWNLOAD_URL);
             setDefaultIfMissing(config, "extra_jvm_args", DEFAULT_EXTRA_JVM_ARGS);
+            setDefaultIfMissing(config, "debug_mode", DEFAULT_DEBUG_MODE);
 
             config.setComment("ram_gb",
                     String.format("""
@@ -94,6 +95,14 @@ public class FileManager {
                             """, DEFAULT_EXTRA_JVM_ARGS
                     )
             );
+            config.setComment("debug_mode",
+                    String.format("""
+                            Enables the debug mode.
+                            This will print the server log instead of a progress bar, which can be used for debugging issues with the minecraft server.
+                            Default: %s.
+                            """, DEFAULT_DEBUG_MODE
+                    )
+            );
 
             // Extract configuration values
             int ramGb = config.getInt("ram_gb");
@@ -103,8 +112,9 @@ public class FileManager {
             String fabricDownloadUrl = config.get("fabric_download_url");
             String dhDownloadUrl = config.get("dh_download_url");
             List<String> extraJvmArgs = config.get("extra_jvm_args");
+            boolean debugMode = config.get("debug_mode");
 
-            return new BenchmarkConfig(ramGb, seeds, threadPreset, generationRadius, fabricDownloadUrl, dhDownloadUrl, extraJvmArgs);
+            return new BenchmarkConfig(ramGb, seeds, threadPreset, generationRadius, fabricDownloadUrl, dhDownloadUrl, extraJvmArgs, debugMode);
         }
     }
 
