@@ -49,7 +49,7 @@ public class FileManager {
             config.setComment("ram_gb",
                     String.format("""
                             RAM allocated to the server in GB.
-                            Default: %sGB.
+                            Default: %s
                             """, DEFAULT_RAM_GB)
             );
             config.setComment("seeds",
@@ -63,27 +63,27 @@ public class FileManager {
                     String.format("""
                             This controls the Distant Horizons thread preset used when generating chunks.
                             Available presets are: MINIMAL_IMPACT, LOW_IMPACT, BALANCED, AGGRESSIVE, I_PAID_FOR_THE_WHOLE_CPU.
-                            Default: %s.
+                            Default: %s
                             """, DEFAULT_THREAD_PRESET
                     )
             );
             config.setComment("generation_radius",
                     String.format("""
                             The radius in chunks of the area to generate around the center of the world.
-                            Default: %s.
+                            Default: %s
                             """, DEFAULT_GENERATION_RADIUS
                     ));
             config.setComment("fabric_download_url",
                     String.format("""
                             The URL to download the Fabric server jar from.
-                            Default: %s.
+                            Default: %s
                             """, DEFAULT_FABRIC_DOWNLOAD_URL
                     )
             );
             config.setComment("dh_download_url",
                     String.format("""
                             The URL to download the Distant Horizons mod jar from.
-                            Default: %s.
+                            Default: %s
                             """, DEFAULT_DH_DOWNLOAD_URL
                     )
             );
@@ -91,7 +91,7 @@ public class FileManager {
                     String.format("""
                             Extra JVM arguments to pass to the server.
                             Example: ["arg1", "arg2"]
-                            Default: %s.
+                            Default: %s
                             """, DEFAULT_EXTRA_JVM_ARGS
                     )
             );
@@ -99,12 +99,11 @@ public class FileManager {
                     String.format("""
                             Enables the debug mode.
                             This will print the server log instead of a progress bar, which can be used for debugging issues with the minecraft server.
-                            Default: %s.
+                            Default: %s
                             """, DEFAULT_DEBUG_MODE
                     )
             );
 
-            // Extract configuration values
             int ramGb = config.getInt("ram_gb");
             List<String> seeds = config.get("seeds");
             String threadPreset = config.get("thread_preset");
@@ -194,7 +193,6 @@ public class FileManager {
         Path path = Paths.get(directoryPath);
         if (!Files.exists(path)) {
             Files.createDirectories(path);
-            System.out.println("Created directory: " + directoryPath);
         }
     }
 
@@ -242,7 +240,6 @@ public class FileManager {
         ensureDirectoryExists(targetDir);
 
         if (Files.list(sourcePath).findFirst().isEmpty()) {
-            System.out.println("No datapack files found in: " + sourceDir);
             return;
         }
 
@@ -259,15 +256,12 @@ public class FileManager {
                                 // Ensure parent directories exist
                                 Files.createDirectories(target.getParent());
                                 Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-                                System.out.println("Copied datapack file: " + relativePath);
                             }
                         } catch (IOException e) {
                             System.err.println("Failed to copy " + relativePath + ": " + e.getMessage());
                         }
                     });
         }
-
-        System.out.println("Datapacks copied from " + sourceDir + " to " + targetDir);
     }
 }
 

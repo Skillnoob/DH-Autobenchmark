@@ -11,14 +11,16 @@ public class LogMonitor implements AutoCloseable {
     private final Thread readerThread;
 
     /**
-     * This exists so we can print the server log asynchronously.
+     * Creates a LogMonitor with specified debug mode.
      */
-    public LogMonitor(BufferedReader reader) {
+    public LogMonitor(BufferedReader reader, boolean debugMode) {
         readerThread = new Thread(() -> {
             try {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    System.out.println(line);
+                    if (debugMode) {
+                        System.out.println(line);
+                    }
                     queue.offer(line);
                 }
             } catch (IOException e) {

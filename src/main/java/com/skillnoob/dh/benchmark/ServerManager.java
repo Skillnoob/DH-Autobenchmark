@@ -41,7 +41,7 @@ public class ServerManager {
         processReader = new BufferedReader(new InputStreamReader(serverProcess.getInputStream(), StandardCharsets.UTF_8));
         processWriter = new PrintWriter(serverProcess.getOutputStream(), true);
 
-        logMonitor = new LogMonitor(processReader);
+        logMonitor = new LogMonitor(processReader, config.debugMode());
 
         return waitForLogMessage(line -> line.contains("Done"), 120);
     }
@@ -62,6 +62,7 @@ public class ServerManager {
                 }
 
                 System.out.println("Server stopped");
+                System.out.println();
             } catch (Exception e) {
                 System.err.println("Error stopping server: " + e.getMessage());
             } finally {

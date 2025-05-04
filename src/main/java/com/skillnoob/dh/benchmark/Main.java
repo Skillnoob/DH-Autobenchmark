@@ -5,17 +5,24 @@ import com.skillnoob.dh.benchmark.data.BenchmarkResult;
 import com.skillnoob.dh.benchmark.util.DownloadManager;
 import com.skillnoob.dh.benchmark.util.FileManager;
 import com.skillnoob.dh.benchmark.util.HardwareInfo;
+import com.skillnoob.dh.benchmark.util.NoFractionProgressBarRenderer;
+import me.tongfei.progressbar.ProgressBar;
+import me.tongfei.progressbar.ProgressBarBuilder;
+import me.tongfei.progressbar.ProgressBarStyle;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Main {
     private static final String SERVER_DIR = "server";
@@ -56,12 +63,14 @@ public class Main {
             benchmarkConfig = FileManager.loadBenchmarkConfig();
 
             System.out.println("Loaded configuration:");
-            System.out.println("RAM (GB): " + benchmarkConfig.ramGb());
-            System.out.println("Seeds: " + benchmarkConfig.seeds());
-            System.out.println("Thread Preset: " + benchmarkConfig.threadPreset());
-            System.out.println("Benchmark Radius: " + benchmarkConfig.generationRadius());
-            System.out.println("Fabric Download URL: " + benchmarkConfig.fabricDownloadUrl());
-            System.out.println("Distant Horizons Download URL: " + benchmarkConfig.dhDownloadUrl());
+            System.out.println("- RAM (GB): " + benchmarkConfig.ramGb());
+            System.out.println("- Seeds: " + benchmarkConfig.seeds());
+            System.out.println("- Thread Preset: " + benchmarkConfig.threadPreset());
+            System.out.println("- Benchmark Radius: " + benchmarkConfig.generationRadius());
+            System.out.println("- Fabric Download URL: " + benchmarkConfig.fabricDownloadUrl());
+            System.out.println("- Distant Horizons Download URL: " + benchmarkConfig.dhDownloadUrl());
+            System.out.println("- Extra JVM Args: " + benchmarkConfig.extraJvmArgs());
+            System.out.println("- Debug Mode: " + benchmarkConfig.debugMode());
 
             serverManager = new ServerManager(benchmarkConfig);
             List<String> serverCmd = serverManager.getServerStartCommand();
@@ -93,8 +102,8 @@ public class Main {
             List<String> seeds = benchmarkConfig.seeds();
             List<BenchmarkResult> benchmarkResults = new ArrayList<>();
             // Run the benchmark for each seed.
-            for (String seed : seeds) {
-                BenchmarkResult result = runBenchmark(seed, serverCmd);
+            for (int i = 0; i < seeds.size(); i++) {
+                BenchmarkResult result = runBenchmark(seeds.get(i), serverCmd, i);
                 benchmarkResults.add(result);
             }
 
@@ -128,7 +137,7 @@ public class Main {
     /**
      * Runs the benchmark on a given seed.
      */
-    private static BenchmarkResult runBenchmark(String seed, List<String> cmd) throws IOException, InterruptedException {
+    private static BenchmarkResult runBenchmark(String seed, List<String> cmd, int run) throws IOException, InterruptedException {
         // Delete the previous world
         Path worldDir = Paths.get(WORLD_DIR);
         if (Files.exists(worldDir)) {
@@ -141,6 +150,7 @@ public class Main {
         // Select the seed.
         FileManager.updateConfigLine(Paths.get(SERVER_DIR, SERVER_PROPERTIES_FILE), "level-seed", "level-seed=" + seed);
 
+        System.out.println("Starting server...");
         if (!serverManager.startServer(cmd)) {
             throw new IOException("Failed to start server, or server took too long to start.");
         }
@@ -151,40 +161,94 @@ public class Main {
         Thread.sleep(5000);
 
         // Start pregen.
-        System.out.println("Starting pregen with radius " + benchmarkConfig.generationRadius() + " for seed " + seed);
+        System.out.println("Starting pregen run " + run + " with radius " + benchmarkConfig.generationRadius() + " for seed " + seed);
         serverManager.executeCommand("dh pregen start minecraft:overworld 0 0 " + benchmarkConfig.generationRadius());
 
         AtomicLong benchmarkStartTime = new AtomicLong(0);
         AtomicBoolean pregenComplete = new AtomicBoolean(false);
         AtomicLong elapsedTime = new AtomicLong(0);
 
-        // Read server output until pregen completes
-        while (serverManager.isServerRunning() && !pregenComplete.get()) {
-            serverManager.waitForLogMessage(line -> {
-                if (line.contains("Starting pregen")) {
-                    benchmarkStartTime.set(System.currentTimeMillis());
-                    return false;
-                }
+        // Use progress bar if not in debug mode
+        if (!benchmarkConfig.debugMode()) {
+            try (ProgressBar progressBar = new ProgressBarBuilder()
+                    .setRenderer(new NoFractionProgressBarRenderer(
+                            ProgressBarStyle.COLORFUL_UNICODE_BLOCK,
+                            "",
+                            1,
+                            false,
+                            null,
+                            ChronoUnit.SECONDS,
+                            true,
+                            NoFractionProgressBarRenderer::linearEta
+                    ))
+                    .setInitialMax(100)
+                    .setTaskName("Generation Progress:")
+                    .build()) {
+                Pattern progressPattern = Pattern.compile("([\\d.]+)%");
 
-                if (line.contains("Pregen is complete")) {
-                    if (benchmarkStartTime.get() != 0) {
-                        elapsedTime.set(System.currentTimeMillis() - benchmarkStartTime.get());
+                // Read server output until pregen completes
+                while (serverManager.isServerRunning() && !pregenComplete.get()) {
+                    serverManager.waitForLogMessage(line -> {
+                        if (line.contains("Starting pregen")) {
+                            benchmarkStartTime.set(System.currentTimeMillis());
+                            return false;
+                        }
+
+                        if (line.contains("Pregen is complete")) {
+                            if (benchmarkStartTime.get() != 0) {
+                                elapsedTime.set(System.currentTimeMillis() - benchmarkStartTime.get());
+                            }
+                            progressBar.stepTo(100); // Ensure we show 100% at the end
+                            System.out.println("Pregen completed.");
+                            pregenComplete.set(true);
+                            return true;
+                        }
+
+                        // Extract progress percentage
+                        if (line.contains("Generated radius:")) {
+                            Matcher matcher = progressPattern.matcher(line);
+                            if (matcher.find()) {
+                                try {
+                                    double percentage = Double.parseDouble(matcher.group(1));
+                                    progressBar.stepTo(Math.round(percentage));
+                                } catch (NumberFormatException e) {
+                                    // Just continue if we can't parse the percentage
+                                }
+                            }
+                        }
+
+                        return false;
+                    });
+                }
+            }
+        } else {
+            // Read server output until pregen completes
+            while (serverManager.isServerRunning() && !pregenComplete.get()) {
+                serverManager.waitForLogMessage(line -> {
+                    if (line.contains("Starting pregen")) {
+                        benchmarkStartTime.set(System.currentTimeMillis());
+                        return false;
                     }
 
-                    System.out.println("Pregen completed, shutting down server.");
-                    pregenComplete.set(true);
-                    return true;
-                }
+                    if (line.contains("Pregen is complete")) {
+                        if (benchmarkStartTime.get() != 0) {
+                            elapsedTime.set(System.currentTimeMillis() - benchmarkStartTime.get());
+                        }
 
-                return false;
-            });
+                        System.out.println("Pregen completed, shutting down server.");
+                        pregenComplete.set(true);
+                        return true;
+                    }
 
-            if (pregenComplete.get()) {
-                System.out.println("Waiting 30 seconds before server shutdown to ensure DB is properly finalized...");
-                Thread.sleep(30000); // Safety, otherwise DH will complain about SQLite being closed.
-                serverManager.stopServer();
-                break;
+                    return false;
+                });
             }
+        }
+
+        if (pregenComplete.get()) {
+            System.out.println("Waiting 30 seconds before server shutdown to ensure DB is properly finalized...");
+            Thread.sleep(30000); // Safety, otherwise DH will complain about SQLite being closed.
+            serverManager.stopServer();
         }
 
         Path dhDbPath = Paths.get(DH_DB_FILE);
