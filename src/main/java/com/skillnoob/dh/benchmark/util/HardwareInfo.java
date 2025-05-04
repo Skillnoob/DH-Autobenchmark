@@ -70,7 +70,7 @@ public class HardwareInfo {
                 ? String.format(" %.0f MT/s", maxSpeedHz / 1_000_000.0)
                 : "";
 
-        return String.format("%s %s%s", sizeString, memoryType, memorySpeed);
+        return String.format("%sGB %s%s", sizeString, memoryType, memorySpeed);
     }
 
     // Gets the drive model the program is run from
