@@ -18,7 +18,9 @@ SERVERPROPERTIES=${DIR}"/server.properties"
 SCREEN="dh-automation-benchmark"
 BUFFERCOUNTER="1"
 RUN="1"
-BENCHMARKTIME_SECONDS="do_not_edit"
+BENCHMARKTIME_SECONDS_MILLISECONDS="do_not_edit"
+BENCHMARKTIME_SUM="0"
+DBSIZE_SUM="0"
 RESULTSCSVFILE="${DIR}/benchmark-results.csv"
 LATESTLOG="${DIR}/logs/latest.log"
 BACKUPHARDWAREINFORMATIONCSV="${DIR}/hardware-information.csv"
@@ -90,10 +92,10 @@ configCheck() {
   then
       echo "Config file exists"
       read -r -p "Do you want to edit the config file? (Yes/No): " CONFIGANSWER
-      if test ${CONFIGANSWER} == "Yes"
+      if test ${CONFIGANSWER} == "Yes" || test ${CONFIGANSWER} == "yes"
       then 
         nano ${DIR}/${CONFIG}
-        echo "edited config file"
+        echo "Edited config file"
       else
         echo "Using available benchmark config!"
       fi
@@ -233,7 +235,7 @@ serverPropertiesCheck() {
 }
 
 benchmarkResultsCSVCreate() {
-  echo "Run 1, Run 2, Run 3, Run 4, Run 5, DB Size Run 1, DB Size Run 2, DB Size Run 3, DB Size Run 4, DB Size Run 5" >${RESULTSCSVFILE}
+  echo "Run 1,Run 2,Run 3,Run 4,Run 5,Average Run Time,DB Size Run 1,DB Size Run 2,DB Size Run 3,DB Size Run 4,DB Size Run 5,Average DB Size" >${RESULTSCSVFILE}
 }
 
 downloadFabricAndDistantHorizons() {
@@ -281,7 +283,7 @@ eulaCheck() {
 }
 
 screenStartServer() {
-  echo "Starting Server!"
+  printf "Starting Server! ▀ "
   screen -d -m -S ${SCREEN} java -Xmx${ram_gb}G ${extra_jvm_args} -jar ${DIR}/fabricserver.jar nogui &
   # Wait for the server to generate a new 'latest.log'
   sleep 2s
@@ -305,7 +307,7 @@ setThreadPreset() {
   do
     sleep 1s
   done
-    echo "Set Thread Preset to ${thread_preset}" 
+    echo  "Set Thread Preset to ${thread_preset}" 
   else
     echo "Could not set common.threadPreset to ${thread_preset}"
     exit 6
@@ -317,22 +319,29 @@ setThreadPreset() {
 stopServer() {
   screen -S ${SCREEN} -X stuff "/stop^M"
 
+  printf "Shutting down server ▀ "
   sleep 3s 
   STOPCOUNTER="0"
 
   while screen -ls | grep -w ${SCREEN} >/dev/null
   do
-    if test ${STOPCOUNTER} -ge 60
+    if test ${STOPCOUNTER} -ge 120
     then
       echo "Server did not stop gracefully, force closing server..."
       screen -S ${SCREEN} -X kill
     else
-      echo "Waiting for Server to stop..."
+      printf "\rShutting down server ▌ "
+      sleep 0.5
+      printf "\rShutting down server ▄ "
+      sleep 0.5
+      printf "\rShutting down server ▐ "
+      sleep 0.5
+      printf "\rShutting down server ▀ "
+      sleep 0.3
     fi
       sleep 1s
   done
-
-  echo "Server stopped!"
+  echo " - Server stopped!"
 }
 
 worldDelete() {
@@ -384,7 +393,7 @@ function ProgressBar {
   then
     _progress="0"
     _fill=""
-    _empty="----------------------------------------"
+    _empty="░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░"
   else
       let _progress=(${1}*100/${2}*100)/100 
       let _done=(${_progress}*4)/10 
@@ -396,7 +405,7 @@ function ProgressBar {
   # 1.2 Build progressbar strings and print the ProgressBar line
   # 1.2.1 Output example:
   # 1.2.1.1 Progress : [########################################] 100%
-  printf "\rProgress : [${_fill// /#}${_empty// /-}] ${_progress}%%"
+  printf "\rProgress: [${_fill// /▓}${_empty// /░}] ${_progress}%%"
 
 }
 
@@ -430,7 +439,7 @@ then
       fi
     done
   else
-    echo "There are no datapacks in ${CUSTOMDATAPACKFOLDER}, did you forget to delete the folder?"
+    echo "No datapacks in ${CUSTOMDATAPACKFOLDER}, did you forget to delete the folder?"
   fi
 else
   echo "${CUSTOMDATAPACKFOLDER} folder does not exist, datapacks will not be used."
@@ -488,7 +497,7 @@ collectHardwareInformation() {
 
 
     # Add hardware information to main csv file with a gap-row
-    if echo " " >>${RESULTSCSVFILE} && echo "CPU, RAM, DRIVE" >>${RESULTSCSVFILE} && echo ${HARDWAREINFORMATION[@]} >>${RESULTSCSVFILE}
+    if echo " " >>${RESULTSCSVFILE} && echo "CPU,RAM,DRIVE" >>${RESULTSCSVFILE} && echo ${HARDWAREINFORMATION[@]} >>${RESULTSCSVFILE}
     then
       echo "Hardware information added to main csv file!"
       echo "Please provide ${RESULTSCSVFILE} when submitting!"
@@ -499,12 +508,12 @@ collectHardwareInformation() {
         echo "Added hardware information to separate csv file"
       else
         echo "Could not add hardware information to separate csv file, please provide this information when submitting:"
-        echo "${CPU} ${CPUCORES}C/${CPUTHREADS}T, ${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED}, ${DISKMODEL} ${DISKSIZE}GB"
+        echo "${CPU} ${CPUCORES}C/${CPUTHREADS}T,${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED},${DISKMODEL} ${DISKSIZE}GB"
       fi
       echo "Could not add hardware information to main csv file, please provide both ${BACKUPHARDWAREINFORMATIONCSV} and ${RESULTSCSVFILE} when submitting!"
     fi
   else
-    echo 'The user did not accept, please use the command "dmidecode -t memory" and "smartctl -a /dev/YOURDRIVE" with elevated privileges to get the information needed for submitting.'
+    echo 'The user did not accept, please execute the script with elevated privileges as shown to add the hardware information to the .csv file: "./dh-benchmark.sh -h"'
   fi
 
   echo "-----------------------"
@@ -554,84 +563,98 @@ do
   
 
   # Wait for server to succesfully start
-  while ! grep -w "Done" <${LATESTLOG} 2>/dev/null
+  while ! grep -w "Done" <${LATESTLOG} 1>/dev/null 2>/dev/null
   do
     if test ${BUFFERCOUNTER} -lt 300
     then
       BUFFERCOUNTER=$((++BUFFERCOUNTER))
+      printf "\rStarting Server! ▌ "
+      sleep 0.5
+      printf "\rStarting Server! ▄ "
+      sleep 0.5
+      printf "\rStarting Server! ▐ "
+      sleep 0.5
+      printf "\rStarting Server! ▀ "
+      sleep 0.3
       sleep 1s
     else
       echo "Server did not start correctly, exiting script..."
       exit 7
     fi
   done
+  echo " - Server started!"
 
   setThreadPreset
   
   echo "Starting Pregen Run ${RUN} with radius ${generation_radius} for seed ${seeds[$((${RUN}-1))]}"
   if screen -S ${SCREEN} -X stuff "dh pregen start minecraft:overworld 0 0 ${generation_radius}"^M
   then
-    while ! grep -w "Starting pregen" <${LATESTLOG}
+    while ! grep -w "Starting pregen" <${LATESTLOG} 1>/dev/null 2>/dev/null
     do 
       sleep 1s
     done
-    SECONDS="0"
+    start_at=$(date +%s,%N | tr "," ".")
+    
     
     while ! grep -w "Pregen is complete" <${LATESTLOG} >/dev/null 2>/dev/null
     do
+      sleep 0.001
       PERCENTFINISHED=$(grep -w "Generated radius" <${LATESTLOG} | tail -n 1 | cut -d "%" -f 1 | cut -d " " -f 12 | cut -d "." -f 1)
       ProgressBar ${PERCENTFINISHED} ${_end}
-      sleep 3s
     done
+    # Show finished ProgressBar to not have unfinished ProgressBar's showing on CLI
+    ProgressBar 100 100
 
-    BENCHMARKTIME_SECONDS=${SECONDS}
-    echo -e "\n Pregen for Run ${RUN} completed in $(( (BENCHMARKTIME_SECONDS / 60) / 60 )) hours, $((BENCHMARKTIME_SECONDS / 60)) minutes and $((BENCHMARKTIME_SECONDS % 60)) seconds!"
-    echo "Shutting down server"
+    end_at=$(date +%s,%N | tr "," ".")
+
+    
+    BENCHMARKTIME_SECONDS_MILLISECONDS=$(awk -v start=${start_at} -v end=${end_at} 'BEGIN {printf "%.3f", end - start}')
+    BENCHMARKTIME_SUM=$(awk -v sum="${BENCHMARKTIME_SUM}" -v benchtimeonerun="${BENCHMARKTIME_SECONDS_MILLISECONDS}" 'BEGIN {printf "%.3f", sum + benchtimeonerun}')
+
+    echo -e "\nPregen for Run ${RUN} completed in $(awk -v time="${BENCHMARKTIME_SECONDS_MILLISECONDS}" 'BEGIN {printf "%02d\n", (time/60)/60}') hours, $(awk -v time="${BENCHMARKTIME_SECONDS_MILLISECONDS}" 'BEGIN {printf "%02d\n", (time / 60) % 60}') minutes and $(awk -v time="${BENCHMARKTIME_SECONDS_MILLISECONDS}" 'BEGIN {printf "%06.3f\n", time % 60}') seconds!"
 
     stopServer
 
-    # Add benchmark times to RUNTIMES array (without "," when it is the last run)
-    if test ${RUN} == "5"
-    then
-      RUNTIMES+=($(( (BENCHMARKTIME_SECONDS / 60)/60 )):$((BENCHMARKTIME_SECONDS / 60)):$((BENCHMARKTIME_SECONDS % 60)))
-    else
-      RUNTIMES+=($(( (BENCHMARKTIME_SECONDS / 60)/60 )):$((BENCHMARKTIME_SECONDS / 60)):$((BENCHMARKTIME_SECONDS % 60))",")
-    fi
+    # Add benchmark times to RUNTIMES array 
+    RUNTIMES+=($(awk -v time="${BENCHMARKTIME_SECONDS_MILLISECONDS}" 'BEGIN {printf "%02d\n", (time/60)/60}'):$(awk -v time="${BENCHMARKTIME_SECONDS_MILLISECONDS}" 'BEGIN {printf "%02d\n", (time / 60) % 60}'):$(awk -v time="${BENCHMARKTIME_SECONDS_MILLISECONDS}" 'BEGIN {printf "%06.3f\n", time % 60}')",")
     
-    # Add db sizes to DBSIZES array (without "," when it is the last run)
+    # Add db sizes to DBSIZES array
     DBSIZE=$(stat -c '%s' ${DIR}/world/data/DistantHorizons.sqlite)
     DBSIZEMB=$((DBSIZE / (1024*1024)))
-    if test ${RUN} == "5"
-    then
-      DBSIZES+=(${DBSIZEMB}"MB")
-    else
-      DBSIZES+=(${DBSIZEMB}"MB,")
-    fi
+    DBSIZE_SUM=$(awk -v sum="${DBSIZE_SUM}" -v dbsizeonerun="${DBSIZEMB}" 'BEGIN {printf "%.3f", sum + dbsizeonerun}')
+    
+    DBSIZES+=(${DBSIZEMB}"MB,")
+
     echo "The DB has a size of ${DBSIZEMB}MB"
+    echo ""
   fi  
   RUN=$((++RUN)) 
 done
 
 benchmarkResultsCSVCreate
 
-# Add the time of every run to the main csv file
-if echo ${RUNTIMES[@]} >>${RESULTSCSVFILE}
-then
-  echo "Added run times to main csv file!"
-else
-  echo "Could not add run times to main csv file."
-  echo "Please provide this information when submitting:"
-  echo ${RUNTIMES[@]}
-fi
+# Calculate averages for the benchmarktimes and db sizes and convert them to the csv format
+BENCHMARKTIME_AVERAGE=$(awk -v sum="${BENCHMARKTIME_SUM}" 'BEGIN {printf "%.3f", sum / 5}')
+BENCHMARKTIME_AVERAGE_CSV=$(awk -v time="${BENCHMARKTIME_AVERAGE}" 'BEGIN {printf "%02d\n", (time/60)/60}'):$(awk -v time="${BENCHMARKTIME_AVERAGE}" 'BEGIN {printf "%02d\n", (time / 60) % 60}'):$(awk -v time="${BENCHMARKTIME_AVERAGE}" 'BEGIN {printf "%06.3f\n", time % 60}')","
 
-# Add the db size of every run to the main csv file
-if echo ${DBSIZES[@]} >>${RESULTSCSVFILE}
+DBSIZE_AVERAGE=$(awk -v sum="${DBSIZE_SUM}" 'BEGIN {printf "%d", sum / 5}')
+DBSIZE_AVERAGE_CSV=${DBSIZE_AVERAGE}"MB"
+
+# Save RUNTIMES Array and DBSIZES Array to a variable to later convert to csv format
+RUNTIMESVARIABLE=${RUNTIMES[@]}
+DBSIZESVARIABLE=${DBSIZES[@]}
+
+# Add the time and db size of every run to the main csv file
+if echo $(echo ${RUNTIMESVARIABLE} | tr -d " ")${BENCHMARKTIME_AVERAGE_CSV}$(echo ${DBSIZESVARIABLE} | tr -d " ")${DBSIZE_AVERAGE_CSV} >>${RESULTSCSVFILE}
 then
-  echo "Added run times to main csv file!"
+  echo "Added run times and db sizes and averages to main csv file!"
 else
-  echo "Could not add run times to main csv file."
+  echo "Could not add run times and db sizes to main csv file."
   echo "Please provide this information when submitting:"
+  echo ${RUNTIMES[@]} 
   echo ${DBSIZES[@]}
+  echo "Average Run Time: "${BENCHMARKTIME_AVERAGE_CSV}
+  echo "Average DB Size: "${DBSIZE_AVERAGE_CSV}
 fi
 
 collectHardwareInformation
