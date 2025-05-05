@@ -16,7 +16,6 @@ public class DownloadManager {
     public static boolean downloadFile(String url, String savePath, String fileName) throws IOException, InterruptedException {
         Path path = Paths.get(savePath, fileName);
         if (Files.exists(path)) {
-            System.out.println(fileName + " already exists. Skipping download.");
             return false;
         }
 

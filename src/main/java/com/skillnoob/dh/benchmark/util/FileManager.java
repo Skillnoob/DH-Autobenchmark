@@ -129,7 +129,7 @@ public class FileManager {
     /**
      * Writes benchmark results to a CSV file.
      */
-    public static void writeResultsToCSV(String filePath, List<String> seeds, List<BenchmarkResult> results, String avgTime, long avgDbSizeInMB, int ramGB) throws IOException {
+    public static void writeResultsToCSV(String filePath, List<String> seeds, List<BenchmarkResult> results, String avgTime, int avgCps, long avgDbSizeInMB, int ramGB) throws IOException {
         try (PrintWriter writer = new PrintWriter(filePath)) {
             // Write header row
             StringBuilder header = new StringBuilder();
@@ -138,6 +138,8 @@ public class FileManager {
                 header.append("Run ").append(i + 1).append("\t");
             }
             header.append("Average\t");
+
+            header.append("Average cps\t");
 
             // Add DB size columns
             for (int i = 0; i < seeds.size(); i++) {
@@ -155,6 +157,8 @@ public class FileManager {
                 data.append(Main.formatDuration(result.elapsedTime())).append("\t");
             }
             data.append(avgTime).append("\t");
+
+            data.append(avgCps).append("\t");
 
             // Add DB sizes
             for (BenchmarkResult result : results) {

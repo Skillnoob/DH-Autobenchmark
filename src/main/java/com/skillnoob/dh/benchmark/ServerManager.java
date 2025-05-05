@@ -41,7 +41,10 @@ public class ServerManager {
         processReader = new BufferedReader(new InputStreamReader(serverProcess.getInputStream(), StandardCharsets.UTF_8));
         processWriter = new PrintWriter(serverProcess.getOutputStream(), true);
 
-        logMonitor = new LogMonitor(processReader, config.debugMode());
+        // Only create LogMonitor in debug mode
+        if (config.debugMode()) {
+            logMonitor = new LogMonitor(processReader, true);
+        }
 
         return waitForLogMessage(line -> line.contains("Done"), 120);
     }
@@ -62,7 +65,6 @@ public class ServerManager {
                 }
 
                 System.out.println("Server stopped");
-                System.out.println();
             } catch (Exception e) {
                 System.err.println("Error stopping server: " + e.getMessage());
             } finally {
@@ -91,11 +93,22 @@ public class ServerManager {
             long timeoutMillis = timeoutSeconds == 0 ? Long.MAX_VALUE : timeoutSeconds * 1000L;
 
             while (serverProcess.isAlive() && (System.currentTimeMillis() - start) < timeoutMillis) {
-                String line = logMonitor.pollLine(1, TimeUnit.SECONDS);
-                if (line == null) {
-                    continue;
+                String line;
+
+                if (config.debugMode()) {
+                    // Use LogMonitor in debug mode
+                    line = logMonitor.pollLine(1, TimeUnit.SECONDS);
+                } else {
+                    // Direct reading in non-debug mode
+                    try {
+                        line = processReader.readLine();
+                    } catch (IOException e) {
+                        System.err.println("Error reading process output: " + e.getMessage());
+                        continue;
+                    }
                 }
-                if (messagePredicate.test(line)) {
+
+                if (line != null && messagePredicate.test(line)) {
                     return true;
                 }
             }
@@ -142,6 +155,10 @@ public class ServerManager {
             if (processReader != null) {
                 processReader.close();
                 processReader = null;
+            }
+            if (logMonitor != null) {
+                logMonitor.close();
+                logMonitor = null;
             }
             serverProcess = null;
         } catch (IOException e) {

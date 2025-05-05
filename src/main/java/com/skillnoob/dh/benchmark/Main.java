@@ -17,10 +17,13 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -99,6 +102,7 @@ public class Main {
             }
 
             DownloadManager.downloadFile(benchmarkConfig.dhDownloadUrl(), MODS_DIR, DH_JAR);
+            System.out.println();
 
             List<String> seeds = benchmarkConfig.seeds();
             List<BenchmarkResult> benchmarkResults = new ArrayList<>();
@@ -117,7 +121,7 @@ public class Main {
                 BenchmarkResult res = benchmarkResults.get(i);
                 double dbSizeInMB = res.dbSize() / (1024.0 * 1024.0);
                 String formattedTime = formatDuration(res.elapsedTime());
-                System.out.println("Seed " + seeds.get(i) + ": Elapsed Time: " + formattedTime + ", Database Size: " + Math.round(dbSizeInMB) + " MB");
+                System.out.println("Seed " + seeds.get(i) + ": Elapsed Time: " + formattedTime + ", Cps: " + res.averageCps() + ", Database Size: " + Math.round(dbSizeInMB) + " MB");
 
                 totalTime += res.elapsedTime();
                 totalDBSizeInMB += dbSizeInMB;
@@ -126,9 +130,10 @@ public class Main {
             long avgTime = totalTime / seeds.size();
             long avgDBSizeInMB = Math.round(totalDBSizeInMB / seeds.size());
             String formattedAvgTime = formatDuration(avgTime);
-            System.out.println("Average: Elapsed Time: " + formattedAvgTime + ", Database Size: " + avgDBSizeInMB + " MB");
+            int avgCps = (int) benchmarkResults.stream().mapToInt(BenchmarkResult::averageCps).average().orElse(0);
+            System.out.println("Average: Elapsed Time: " + formattedAvgTime + ", Cps: " + avgCps + ", Database Size: " + avgDBSizeInMB + " MB");
 
-            FileManager.writeResultsToCSV("benchmark-results.csv", seeds, benchmarkResults, formattedAvgTime, avgDBSizeInMB, benchmarkConfig.ramGb());
+            FileManager.writeResultsToCSV("benchmark-results.csv", seeds, benchmarkResults, formattedAvgTime, avgCps, avgDBSizeInMB, benchmarkConfig.ramGb());
             System.out.println("Results saved to benchmark-results.csv");
         } catch (Exception e) {
             throw new RuntimeException("An error occurred during the benchmark process.", e);
@@ -162,16 +167,20 @@ public class Main {
         Thread.sleep(5000);
 
         // Start pregen.
-        System.out.println("Starting pregen run " + run + " with radius " + benchmarkConfig.generationRadius() + " for seed " + seed);
+        System.out.println("Starting pregen run " + (run + 1) + " with radius " + benchmarkConfig.generationRadius() + " for seed " + seed);
         serverManager.executeCommand("dh pregen start minecraft:overworld 0 0 " + benchmarkConfig.generationRadius());
 
         AtomicLong benchmarkStartTime = new AtomicLong(0);
         AtomicBoolean pregenComplete = new AtomicBoolean(false);
         AtomicLong elapsedTime = new AtomicLong(0);
+        List<Integer> cpsList = Collections.synchronizedList(new ArrayList<>());
 
-        // Use progress bar if not in debug mode
+        AtomicReference<ProgressBar> progressBar = new AtomicReference<>(null);
+        Pattern dataExtractor = Pattern.compile("(\\d+)\\scps,\\s([\\d.]+)%");
+
+        // Initialize the progress bar if not in debug mode
         if (!benchmarkConfig.debugMode()) {
-            try (ProgressBar progressBar = new ProgressBarBuilder()
+            progressBar.set(new ProgressBarBuilder()
                     .setRenderer(new NoFractionProgressBarRenderer(
                             ProgressBarStyle.COLORFUL_UNICODE_BLOCK,
                             "",
@@ -184,66 +193,51 @@ public class Main {
                     ))
                     .setInitialMax(100)
                     .setTaskName("Generation Progress:")
-                    .build()) {
-                Pattern progressPattern = Pattern.compile("([\\d.]+)%");
+                    .build());
+        }
 
-                // Read server output until pregen completes
-                while (serverManager.isServerRunning() && !pregenComplete.get()) {
-                    serverManager.waitForLogMessage(line -> {
-                        if (line.contains("Starting pregen")) {
-                            benchmarkStartTime.set(System.currentTimeMillis());
-                            return false;
-                        }
-
-                        if (line.contains("Pregen is complete")) {
-                            if (benchmarkStartTime.get() != 0) {
-                                elapsedTime.set(System.currentTimeMillis() - benchmarkStartTime.get());
-                            }
-                            progressBar.stepTo(100); // Ensure we show 100% at the end
-                            System.out.println("Pregen completed.");
-                            pregenComplete.set(true);
-                            return true;
-                        }
-
-                        // Extract progress percentage
-                        if (line.contains("Generated radius:")) {
-                            Matcher matcher = progressPattern.matcher(line);
-                            if (matcher.find()) {
-                                try {
-                                    double percentage = Double.parseDouble(matcher.group(1));
-                                    progressBar.stepTo(Math.round(percentage));
-                                } catch (NumberFormatException e) {
-                                    // Just continue if we can't parse the percentage
-                                }
-                            }
-                        }
-
-                        return false;
-                    });
-                }
-            }
-        } else {
-            // Read server output until pregen completes
-            while (serverManager.isServerRunning() && !pregenComplete.get()) {
-                serverManager.waitForLogMessage(line -> {
-                    if (line.contains("Starting pregen")) {
-                        benchmarkStartTime.set(System.currentTimeMillis());
-                        return false;
-                    }
-
-                    if (line.contains("Pregen is complete")) {
-                        if (benchmarkStartTime.get() != 0) {
-                            elapsedTime.set(System.currentTimeMillis() - benchmarkStartTime.get());
-                        }
-
-                        System.out.println("Pregen completed, shutting down server.");
-                        pregenComplete.set(true);
-                        return true;
-                    }
-
+        // Read server output until pregen completes
+        while (serverManager.isServerRunning() && !pregenComplete.get()) {
+            serverManager.waitForLogMessage(line -> {
+                if (line.contains("Starting pregen")) {
+                    benchmarkStartTime.set(System.currentTimeMillis());
                     return false;
-                });
-            }
+                }
+
+                if (line.contains("Pregen is complete")) {
+                    if (benchmarkStartTime.get() != 0) {
+                        elapsedTime.set(System.currentTimeMillis() - benchmarkStartTime.get());
+                    }
+                    if (progressBar.get() != null) {
+                        progressBar.get().stepTo(100); // Ensure we show 100% at the end
+                        progressBar.get().close();
+                    }
+                    pregenComplete.set(true);
+                    return true;
+                }
+
+                // Extract data from the DH generation line
+                if (line.contains("Generated radius:")) {
+                    Matcher matcher = dataExtractor.matcher(line);
+                    if (matcher.find()) {
+                        try {
+                            int chunkSpeed = Integer.parseInt(matcher.group(1));
+                            cpsList.add(chunkSpeed);
+                        } catch (NumberFormatException ignored) {
+                        }
+
+                        if (progressBar.get() != null) {
+                            try {
+                                double percentage = Double.parseDouble(matcher.group(2));
+                                progressBar.get().stepTo(Math.round(percentage));
+                            } catch (NumberFormatException ignored) {
+                            }
+                        }
+                    }
+                }
+
+                return false;
+            });
         }
 
         if (pregenComplete.get()) {
@@ -254,7 +248,10 @@ public class Main {
 
         Path dhDbPath = Paths.get(DH_DB_FILE);
         long dbSize = Files.exists(dhDbPath) ? Files.size(dhDbPath) : 0;
-        return new BenchmarkResult(elapsedTime.get(), dbSize);
+        int avgCps = (int) cpsList.stream().mapToInt(Integer::intValue).average().orElse(0);
+        System.out.println("Pregen completed in " + formatDuration(elapsedTime.get()) + ", Cps: " + avgCps + ", Database size: " + Math.round(dbSize / (1024.0 * 1024.0)) + "MB");
+        System.out.println();
+        return new BenchmarkResult(elapsedTime.get(), dbSize, avgCps);
     }
 
     public static String formatDuration(long millis) {
