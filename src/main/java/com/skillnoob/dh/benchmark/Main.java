@@ -88,7 +88,7 @@ public class Main {
                             System.out.println("Fabric downloaded successfully.");
                             System.out.println("Starting server to generate eula.txt and server.properties...");
                             serverManager.startServer(serverCmd);
-                            serverManager.stopServer();
+                            serverManager.stopServer(false);
 
                             FileManager.updateConfigLine(Paths.get(SERVER_DIR, EULA_FILE), "eula", "eula=true");
                             FileManager.updateConfigLine(Paths.get(SERVER_DIR, SERVER_PROPERTIES_FILE), "white-list", "white-list=true");
@@ -135,7 +135,7 @@ public class Main {
             FileManager.writeResultsToCSV("benchmark-results.csv", seeds, benchmarkResults, formattedAvgTime, avgCps, avgDBSizeInMB, benchmarkConfig.ramGb());
             System.out.println("Results saved to benchmark-results.csv");
         } catch (Exception e) {
-            throw new RuntimeException("An error occurred during the benchmark process.", e);
+            System.err.println("An error occurred during the benchmark process: " + e.getMessage());
         }
     }
 
@@ -181,7 +181,9 @@ public class Main {
         if (!benchmarkConfig.debugMode()) {
             progressBar.set(new ProgressBarBuilder()
                     .setRenderer(new NoFractionProgressBarRenderer(
-                            ProgressBarStyle.COLORFUL_UNICODE_BLOCK,
+                            System.getProperty("os.name").toLowerCase().contains("win") ?
+                                    ProgressBarStyle.ASCII :
+                                    ProgressBarStyle.UNICODE_BLOCK,
                             "",
                             1,
                             false,
@@ -242,7 +244,7 @@ public class Main {
         if (pregenComplete.get()) {
             System.out.println("Waiting 30 seconds before server shutdown to ensure DB is properly finalized...");
             Thread.sleep(30000); // Safety, otherwise DH will complain about SQLite being closed.
-            serverManager.stopServer();
+            serverManager.stopServer(false);
         }
 
         Path dhDbPath = Paths.get(DH_DB_FILE);

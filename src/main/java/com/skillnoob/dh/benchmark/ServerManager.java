@@ -24,8 +24,9 @@ public class ServerManager {
         this.config = config;
         // We don't want stray servers when the JVM exits.
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("Shutdown hook triggered, shutting down the active server, if one is running. May take up to a minute.");
-            stopServer();
+            System.out.println();
+            System.out.println("Shutdown hook triggered, shutting down the active server, if one is running.");
+            stopServer(true);
         }));
     }
 
@@ -52,19 +53,23 @@ public class ServerManager {
     /**
      * Stops the server and waits for process termination.
      */
-    public void stopServer() {
+    public void stopServer(boolean kill) {
         if (serverProcess != null && serverProcess.isAlive()) {
             try {
-                executeCommand("stop");
-
-                boolean terminated = serverProcess.waitFor(60, TimeUnit.SECONDS);
-
-                if (!terminated) {
-                    System.out.println("Server did not stop gracefully, forcing termination");
+                if (kill) {
                     serverProcess.destroyForcibly();
-                }
+                } else {
+                    executeCommand("stop");
 
-                System.out.println("Server stopped");
+                    boolean terminated = serverProcess.waitFor(60, TimeUnit.SECONDS);
+
+                    if (!terminated) {
+                        System.out.println("Server did not stop gracefully, forcing termination");
+                        serverProcess.destroyForcibly();
+                    }
+
+                    System.out.println("Server stopped");
+                }
             } catch (Exception e) {
                 System.err.println("Error stopping server: " + e.getMessage());
             } finally {
@@ -126,7 +131,10 @@ public class ServerManager {
      * Checks if the server process is running.
      */
     public boolean isServerRunning() {
-        return serverProcess != null && serverProcess.isAlive();
+        if (serverProcess == null) {
+            return false;
+        }
+        return serverProcess.isAlive();
     }
 
     /**
