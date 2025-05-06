@@ -134,39 +134,36 @@ public class FileManager {
             // Write header row
             StringBuilder header = new StringBuilder();
 
-            for (int i = 0; i < seeds.size(); i++) {
-                header.append("Run ").append(i + 1).append("\t");
-            }
-            header.append("Average\t");
+            header.append("Allocated RAM,");
 
-            header.append("Average cps\t");
-
-            // Add DB size columns
             for (int i = 0; i < seeds.size(); i++) {
-                header.append("DB Size Run ").append(i + 1).append("\t");
+                header.append("Run ").append(i + 1).append(",");
             }
-            header.append("DB Size Average\t");
-            header.append("Allocated RAM");
+            header.append("Average Time,");
+            header.append("Average Chunks per Second,");
+
+            for (int i = 0; i < seeds.size(); i++) {
+                header.append("DB Size Run ").append(i + 1).append(",");
+            }
+            header.append("DB Size Average");
             writer.println(header);
 
-            // Write data row
             StringBuilder data = new StringBuilder();
 
-            // Add run times
-            for (BenchmarkResult result : results) {
-                data.append(Main.formatDuration(result.elapsedTime())).append("\t");
-            }
-            data.append(avgTime).append("\t");
+            data.append(ramGB).append("GB,");
 
-            data.append(avgCps).append("\t");
+            for (BenchmarkResult result : results) {
+                data.append(Main.formatDuration(result.elapsedTime())).append(",");
+            }
+            data.append(avgTime).append(",");
+            data.append(avgCps).append(",");
 
             // Add DB sizes
             for (BenchmarkResult result : results) {
                 double dbSizeInMB = result.dbSize() / (1024.0 * 1024.0);
-                data.append(Math.round(dbSizeInMB)).append("MB\t");
+                data.append(Math.round(dbSizeInMB)).append("MB,");
             }
-            data.append(avgDbSizeInMB).append("MB\t");
-            data.append(ramGB).append("GB");
+            data.append(avgDbSizeInMB).append("MB");
 
             writer.println(data);
         }
@@ -177,16 +174,18 @@ public class FileManager {
      */
     public static void writeHardwareInfoToCSV(String filePath, List<String> hardwareInfo) throws IOException {
         Path csvPath = Paths.get(filePath);
-        List<String> lines = Files.exists(csvPath) ?
-                Files.readAllLines(csvPath, StandardCharsets.UTF_8) :
-                new ArrayList<>();
+        List<String> existingLines = Files.readAllLines(csvPath, StandardCharsets.UTF_8);
+        List<String> newLines = new ArrayList<>();
 
-        lines.add("");
+        String headerRow = existingLines.getFirst();
+        String newHeaderRow = "CPU,RAM,DRIVE," + headerRow;
+        newLines.add(newHeaderRow);
 
-        lines.add("CPU\tRAM\tDRIVE");
-        lines.add(hardwareInfo.get(0) + "\t" + hardwareInfo.get(1) + "\t" + hardwareInfo.get(2));
+        String dataRow = existingLines.get(1);
+        String newDataRow = hardwareInfo.get(0) + "," + hardwareInfo.get(1) + "," + hardwareInfo.get(2) + "," + dataRow;
+        newLines.add(newDataRow);
 
-        Files.write(csvPath, lines, StandardCharsets.UTF_8);
+        Files.write(csvPath, newLines, StandardCharsets.UTF_8);
         System.out.println("Hardware information added to results file");
     }
 
