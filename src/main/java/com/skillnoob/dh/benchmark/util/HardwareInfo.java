@@ -6,11 +6,15 @@ import oshi.hardware.GlobalMemory;
 import oshi.hardware.HardwareAbstractionLayer;
 import oshi.hardware.PhysicalMemory;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Locale;
+import java.util.stream.Collectors;
 
 public class HardwareInfo {
     private static final SystemInfo systemInfo = new SystemInfo();
@@ -73,40 +77,62 @@ public class HardwareInfo {
         return String.format("%sGB %s%s", sizeString, memoryType, memorySpeed);
     }
 
-    // Gets the drive model the program is run from
     private static String getCurrentDriveModel() {
-        Path currentPath = Paths.get(".").toAbsolutePath();
+        try {
+            String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+            if (os.contains("win")) {
+                // Windows: use PowerShell Storage module
+                char drive = Paths.get("").toAbsolutePath().getRoot().toString().charAt(0);
+                List<String> cmd = List.of(
+                        "powershell.exe",
+                        "-NoProfile",
+                        "-Command",
+                        "$d=Get-Partition -DriveLetter '" + drive + "' | Select-Object -ExpandProperty DiskNumber; " +
+                                "Get-PhysicalDisk -DeviceNumber $d | Select-Object -ExpandProperty FriendlyName"
+                );
+                return runCommand(cmd).trim();
+            } else if (os.contains("mac")) {
+                Path currentPath = Paths.get(".").toAbsolutePath();
 
-        // This iterates over every partition on every drive and finds the longest mount point
-        // that matches the current path.
-        // Reason being that for example, "/" would match "/mnt/drive1"
-        return systemInfo.getHardware().getDiskStores().stream()
-                .flatMap(disk -> disk.getPartitions().stream()
-                        .filter(part -> part.getMountPoint() != null)
-                        .map(part -> {
-                            String mount = unescapeMountPoint(part.getMountPoint());
-                            return new Object() {
-                                final String mountPoint = mount;
-                                final String model = disk.getModel();
-                            };
-                        }))
-                .filter(part -> currentPath.toString().startsWith(part.mountPoint))
-                .max((partA, partB) -> partA.mountPoint.length() - partB.mountPoint.length())
-                .map(part -> part.model)
-                .orElse("Unknown");
+                // This iterates over every partition on every drive and finds the longest mount point
+                // that matches the current path.
+                // Reason being that for example, "/" would match "/mnt/drive1"
+                return systemInfo.getHardware().getDiskStores().stream()
+                        .flatMap(disk -> disk.getPartitions().stream()
+                                .filter(part -> part.getMountPoint() != null)
+                                .map(part -> {
+                                    String mount = part.getMountPoint();
+                                    return new Object() {
+                                        final String mountPoint = mount;
+                                        final String model = disk.getModel();
+                                    };
+                                }))
+                        .filter(part -> currentPath.toString().startsWith(part.mountPoint))
+                        .max((partA, partB) -> partA.mountPoint.length() - partB.mountPoint.length())
+                        .map(part -> part.model)
+                        .orElse("Unknown");
+            } else if (os.contains("linux")) {
+                List<String> findMount = List.of("bash", "-lc", "findmnt -T . -n -o SOURCE");
+                String mount = runCommand(findMount).trim();
+                List<String> pkName = List.of("bash", "-lc", "lsblk -no PKNAME " + mount);
+                String parentMount = runCommand(pkName).trim();
+                List<String> modelName = List.of("bash", "-lc", "lsblk -dn -o MODEL /dev/" + parentMount);
+                return runCommand(modelName).trim();
+            } else {
+                return "Unknown";
+            }
+        } catch (IOException e) {
+            System.err.println("Error getting current drive model: " + e.getMessage());
+            return "Unknown";
+        }
     }
 
-    // Unescapes the mount point string, otherwise we have spaces that are "\040"
-    private static String unescapeMountPoint(String raw) {
-        Pattern p = Pattern.compile("\\\\([0-7]{3})");
-        Matcher m = p.matcher(raw);
-        StringBuilder sb = new StringBuilder();
-        while (m.find()) {
-            // parse octal and append the actual char
-            int code = Integer.parseInt(m.group(1), 8);
-            m.appendReplacement(sb, Matcher.quoteReplacement(Character.toString((char) code)));
+    private static String runCommand(List<String> cmd) throws IOException {
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        pb.redirectErrorStream(true);
+        Process proc = pb.start();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream(), StandardCharsets.UTF_8))) {
+            return reader.lines().collect(Collectors.joining("\n"));
         }
-        m.appendTail(sb);
-        return sb.toString();
     }
 }
