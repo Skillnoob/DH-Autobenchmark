@@ -244,13 +244,14 @@ public class Main {
         if (pregenComplete.get()) {
             System.out.println("Waiting 30 seconds before server shutdown to ensure DB is properly finalized...");
             Thread.sleep(30000); // Safety, otherwise DH will complain about SQLite being closed.
+            System.out.println("Stopping server...");
             serverManager.stopServer(false);
         }
 
         Path dhDbPath = Paths.get(DH_DB_FILE);
         long dbSize = Files.exists(dhDbPath) ? Files.size(dhDbPath) : 0;
         int avgCps = (int) cpsList.stream().mapToInt(Integer::intValue).average().orElse(0);
-        System.out.println("Pregen completed in " + formatDuration(elapsedTime.get()) + ", Cps: " + avgCps + ", Database size: " + Math.round(dbSize / (1024.0 * 1024.0)) + "MB");
+        System.out.println("Pregen completed in " + formatDuration(elapsedTime.get()) + ", Chunks per second: " + avgCps + ", Database size: " + Math.round(dbSize / (1024.0 * 1024.0)) + "MB");
         System.out.println();
         return new BenchmarkResult(elapsedTime.get(), dbSize, avgCps);
     }
