@@ -62,8 +62,6 @@ public class ServerManager {
                         System.out.println("Server did not stop gracefully, forcing termination");
                         serverProcess.destroyForcibly();
                     }
-
-                    System.out.println("Server stopped");
                 }
             } catch (Exception e) {
                 System.err.println("Error stopping server: " + e.getMessage());

@@ -88,7 +88,6 @@ public class Main {
                             System.out.println("Fabric downloaded successfully.");
                             System.out.println("Starting server to generate eula.txt and server.properties...");
                             serverManager.startServer(serverCmd);
-                            serverManager.stopServer(false);
 
                             FileManager.updateConfigLine(Paths.get(SERVER_DIR, EULA_FILE), "eula", "eula=true");
                             FileManager.updateConfigLine(Paths.get(SERVER_DIR, SERVER_PROPERTIES_FILE), "white-list", "white-list=true");
@@ -155,10 +154,11 @@ public class Main {
         // Select the seed.
         FileManager.updateConfigLine(Paths.get(SERVER_DIR, SERVER_PROPERTIES_FILE), "level-seed", "level-seed=" + seed);
 
-        System.out.println("Starting server...");
+        System.out.print("Starting server ... ");
         if (!serverManager.startServer(cmd)) {
             throw new IOException("Failed to start server, or server took too long to start.");
         }
+        System.out.println("Done");
         Thread.sleep(5000);
 
         // Configure the thread preset.
@@ -244,8 +244,9 @@ public class Main {
         if (pregenComplete.get()) {
             System.out.println("Waiting 30 seconds before server shutdown to ensure DB is properly finalized...");
             Thread.sleep(30000); // Safety, otherwise DH will complain about SQLite being closed.
-            System.out.println("Stopping server...");
+            System.out.print("Stopping server ... ");
             serverManager.stopServer(false);
+            System.out.println("Done");
         }
 
         Path dhDbPath = Paths.get(DH_DB_FILE);
