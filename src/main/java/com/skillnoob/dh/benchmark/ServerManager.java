@@ -34,18 +34,14 @@ public class ServerManager {
      * Starts the server with the given command and waits until it finished starting.
      */
     public boolean startServer(List<String> command) throws IOException {
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.directory(new File(SERVER_DIR));
-        pb.redirectErrorStream(true);
+        ProcessBuilder pb = new ProcessBuilder(command)
+                .directory(new File(SERVER_DIR))
+                .redirectErrorStream(true);
 
         serverProcess = pb.start();
         processReader = new BufferedReader(new InputStreamReader(serverProcess.getInputStream(), StandardCharsets.UTF_8));
         processWriter = new PrintWriter(serverProcess.getOutputStream(), true);
-
-        // Only create LogMonitor in debug mode
-        if (config.debugMode()) {
-            logMonitor = new LogMonitor(processReader, true);
-        }
+        logMonitor = new LogMonitor(processReader, config.debugMode());
 
         return waitForLogMessage(line -> line.contains("Done"), 120);
     }
@@ -61,8 +57,7 @@ public class ServerManager {
                 } else {
                     executeCommand("stop");
 
-                    boolean terminated = serverProcess.waitFor(60, TimeUnit.SECONDS);
-
+                    boolean terminated = serverProcess.waitFor(30, TimeUnit.SECONDS);
                     if (!terminated) {
                         System.out.println("Server did not stop gracefully, forcing termination");
                         serverProcess.destroyForcibly();
@@ -97,21 +92,8 @@ public class ServerManager {
             long start = System.currentTimeMillis();
             long timeoutMillis = timeoutSeconds == 0 ? Long.MAX_VALUE : timeoutSeconds * 1000L;
 
-            while (serverProcess.isAlive() && (System.currentTimeMillis() - start) < timeoutMillis) {
-                String line;
-
-                if (config.debugMode()) {
-                    // Use LogMonitor in debug mode
-                    line = logMonitor.pollLine(1, TimeUnit.SECONDS);
-                } else {
-                    // Direct reading in non-debug mode
-                    try {
-                        line = processReader.readLine();
-                    } catch (IOException e) {
-                        System.err.println("Error reading process output: " + e.getMessage());
-                        continue;
-                    }
-                }
+            while (isServerRunning() && (System.currentTimeMillis() - start) < timeoutMillis) {
+                String line = logMonitor.pollLine(1, TimeUnit.SECONDS);
 
                 if (line != null && messagePredicate.test(line)) {
                     return true;
@@ -123,6 +105,9 @@ public class ServerManager {
         return false;
     }
 
+    /**
+     * Waits for a specific message in the server logs that matches the predicate with no timeout.
+     */
     public void waitForLogMessage(Predicate<String> messagePredicate) {
         waitForLogMessage(messagePredicate, 0);
     }
