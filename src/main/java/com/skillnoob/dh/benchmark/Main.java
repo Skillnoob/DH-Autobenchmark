@@ -175,7 +175,7 @@ public class Main {
         List<Integer> cpsList = Collections.synchronizedList(new ArrayList<>());
 
         AtomicReference<ProgressBar> progressBar = new AtomicReference<>(null);
-        Pattern dataExtractor = Pattern.compile("(\\d+)\\scps,\\s([\\d.]+)%");
+        Pattern dataExtractor = Pattern.compile("(\\d+)\\s*cps,\\s*(\\d+(?:\\.\\d+)?)%");
 
         // Initialize the progress bar if not in debug mode
         if (!benchmarkConfig.debugMode()) {
