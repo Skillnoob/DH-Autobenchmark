@@ -131,23 +131,6 @@ public class FileManager {
      */
     public static void writeResultsToCSV(String filePath, List<String> seeds, List<BenchmarkResult> results, String avgTime, int avgCps, long avgDbSizeInMB, int ramGB) throws IOException {
         try (PrintWriter writer = new PrintWriter(filePath)) {
-            // Write header row
-            StringBuilder header = new StringBuilder();
-
-            header.append("Allocated RAM,");
-
-            for (int i = 0; i < seeds.size(); i++) {
-                header.append("Run ").append(i + 1).append(",");
-            }
-            header.append("Average Time,");
-            header.append("Average Chunks per Second,");
-
-            for (int i = 0; i < seeds.size(); i++) {
-                header.append("DB Size Run ").append(i + 1).append(",");
-            }
-            header.append("DB Size Average");
-            writer.println(header);
-
             StringBuilder data = new StringBuilder();
 
             data.append(ramGB).append("GB,");
@@ -177,12 +160,7 @@ public class FileManager {
         List<String> existingLines = Files.readAllLines(csvPath, StandardCharsets.UTF_8);
         List<String> newLines = new ArrayList<>();
 
-        String headerRow = existingLines.getFirst();
-        String newHeaderRow = "CPU,RAM,DRIVE," + headerRow;
-        newLines.add(newHeaderRow);
-
-        String dataRow = existingLines.get(1);
-        String newDataRow = hardwareInfo.get(0) + "," + hardwareInfo.get(1) + "," + hardwareInfo.get(2) + "," + dataRow;
+        String newDataRow = hardwareInfo.get(0) + "," + hardwareInfo.get(1) + "," + hardwareInfo.get(2) + "," + existingLines.getFirst();
         newLines.add(newDataRow);
 
         Files.write(csvPath, newLines, StandardCharsets.UTF_8);
