@@ -33,7 +33,11 @@ public class HardwareInfo {
 
         CentralProcessor cpu = hardware.getProcessor();
         String rawName = cpu.getProcessorIdentifier().getName();
-        String cleanedCpuName = rawName.replaceFirst("\\s+(\\d+-Core\\s+Processor|CPU|Processor)$", "");
+        String cleanedCpuName = rawName
+                .replaceAll("\\b\\d+(?:st|nd|rd|th) Gen\\s+", "")
+                .replaceAll("\\(R\\)|\\(TM\\)", "")
+                .replaceFirst("\\s+(\\d+-Core\\s+Processor|CPU|Processor)$", "")
+                .trim();
 
         return String.format("%s %dC/%dT", cleanedCpuName,
                 cpu.getPhysicalProcessorCount(),
