@@ -32,7 +32,7 @@ The config file is named `dh-benchmark.toml` and is located in the same director
    ```
 
 ## Bash Script - Linux only
-The config file is named `dh-benchmark.config` and is located in the same directory as the script. It gets generated the first time the script is run, but the script will ask if you want to edit it.
+The config file is named `dh-benchmark.toml` and is located in the same directory as the script. It gets generated the first time the script is run, but the script will ask if you want to edit it.
 1. **Install screen**\
    Make sure you have `screen` installed. You can install it using your package manager.\
    Debian/Ubuntu:
@@ -50,7 +50,7 @@ The config file is named `dh-benchmark.config` and is located in the same direct
     ```
    Select `4.9.1` and then select `y` when it asks to add it to the IgnorePkg.
 2. **Download the Bash Script**\
-   Download the `dh-benchmark.sh` script from
+   Download the `dh-autobenchmark.sh` script from
    the [releases page](https://github.com/Skillnoob/DH-Autobenchmark/releases)
 3. **Make the Script Executable**\
    Open a terminal and navigate to the directory where you downloaded the script. Then run:
