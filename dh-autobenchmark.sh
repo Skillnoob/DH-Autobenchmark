@@ -86,9 +86,16 @@ commandAvailable() {
 downloadIfNotExist() {
   if [[ ! -s "${1}" ]]; then
 
-    echo "${1} could not be found." >&2
-    echo "Downloading ${2}" >&2
-    echo "from ${3}" >&2
+    if test ${debug_mode} == "true" 2>/dev/null
+      then
+        echo "${1} could not be found." >&2
+        echo "Downloading ${2}" >&2
+        echo "from ${3}" >&2 
+        sleep 1s
+      else
+      echo "Downloading ${2}" >&2
+    fi
+    
 
     if commandAvailable curl ; then
       curl -# -L -o "${2}" "${3}"
@@ -141,7 +148,7 @@ configCheck() {
   else
       read -r -p "Do you want to edit the config and do a custom run? (Yes/No): " CONFIGANSWER
       
-      if test ${debug_mode} == "true"
+      if test ${debug_mode} == "true" 2>/dev/null
       then
         echo "Config file does not exist" 
         sleep 1s
@@ -187,10 +194,12 @@ seeds=(5057296280818819649 2412466893128258733 3777092783861568240 -850577409713
 # DH SETTINGS # 
 #--------------- 
  
-# This controls the Distant Horizons thread preset used when generating chunks. (Default: I_PAID_FOR_THE_WHOLE_CPU) 
+# This controls the Distant Horizons thread preset used when generating chunks. 
 # Available Presets are: MINIMAL_IMPACT, LOW_IMPACT, BALANCED, AGGRESSIVE, I_PAID_FOR_THE_WHOLE_CPU. 
+# Default: Default: I_PAID_FOR_THE_WHOLE_CPU
 thread_preset="I_PAID_FOR_THE_WHOLE_CPU" 
-# The radius in chunks of the area to generate around the center of the world. (Default: 256)
+# The radius in chunks of the area to generate around the center of the world.
+# Default: 256
 generation_radius="256"
 # The URL to download the Fabric server jar from.
 fabric_download_url="https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.12/1.0.3/server/jar" 
