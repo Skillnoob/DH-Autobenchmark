@@ -26,7 +26,7 @@ BUFFERCOUNTER="1"
 CPS_SUM="0"
 CPS_TOTALAVERAGE="0"
 CUSTOMDATAPACKFOLDER="${DIR}/custom_datapacks"
-CONFIG="dh-automation.config"
+CONFIG="dh-benchmark.toml"
 DATAPACKFOLDER="${DIR}/world/datapacks"
 DBSIZE_SUM="0"
 ETA_HOUR="0"
@@ -627,6 +627,9 @@ collectHardwareInformation() {
   # Data preparation
   echo "Collecting CPU information..."
   CPU=$(lscpu | grep 'Model name' | cut -f 2 -d ":" | awk '{$1=$1}1')
+  # Clean up cpu naming scheme (currently only for intel)
+  CPU=$(echo ${CPU} | sed -E 's/\b[0-9]+(st|nd|rd|th) Gen\s+//g' | sed 's/(R)//g; s/(TM)//g' | sed -E 's/\s+(1?-?Core\s+Processor|CPU|Processor)$//g')
+
   CPUCORES=$(lscpu | awk '/^Socket\(s\):/ {sockets=$2} /^Core\(s\) per socket:/ {cores=$4} END {print sockets * cores}')
   CPUTHREADS=$(nproc --all)
   echo "CPU: ${CPU} ${CPUCORES}C/${CPUTHREADS}T"
