@@ -32,7 +32,7 @@ The config file is named `dh-benchmark.toml` and is located in the same director
    ```
 
 ## Bash Script - Linux only
-The config file is named `dh-automation.config` and is located in the same directory as the script. It gets generated the first time the script is run, but the script will ask if you want to edit it.
+The config file is named `dh-benchmark.config` and is located in the same directory as the script. It gets generated the first time the script is run, but the script will ask if you want to edit it.
 1. **Install screen**\
    Make sure you have `screen` installed. You can install it using your package manager.\
    Debian/Ubuntu:
@@ -64,6 +64,11 @@ The config file is named `dh-automation.config` and is located in the same direc
     ```
 5. **Follow the Instructions**\
    The application will guide you through the process of running the benchmark.
+6. **Collect Hardware Information**\
+   Run the following command to collect the hardware information:
+   ```bash
+   ./dh-autobenchmark.sh -h
+    ```
 
 # Building from Source
 
