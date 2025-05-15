@@ -23,7 +23,7 @@ BACKUPHARDWAREINFORMATIONCSV="${DIR}/hardware-information.csv"
 BENCHMARKTIME_SECONDS_MILLISECONDS="do_not_edit"
 BENCHMARKTIME_SUM="0"
 BUFFERCOUNTER="1"
-CPS_SUM="0"
+CPS_AVERAGE="0"
 CPS_TOTALAVERAGE="0"
 CUSTOMDATAPACKFOLDER="${DIR}/custom_datapacks"
 CONFIG="dh-benchmark.toml"
@@ -876,24 +876,10 @@ printTimeElapsed() {
 }
 
 
-saveCPS() {
-  CPS+=($(echo ${GREPLATESTLOG} | cut -d "," -f 1  | cut -d "(" -f 2 | cut -d " " -f 1))
-}
-
-
 calculateCpsAverageOneRun() {
-  CPS_SUM="0"
-  # Get the sum of the whole array
-  for value in ${CPS[@]}
-  do
-    CPS_SUM=$((CPS_SUM + value))
-  done
-
-  # Get total count of indices
-  CPS_INDEXCOUNT=${#CPS[@]}
-
+  CPS_AVERAGE=$(awk -v btimesm="${BENCHMARKTIME_SECONDS_MILLISECONDS}" -v totalchunks="${generation_radius}" 'BEGIN {printf "%d", ((totalchunks * 2)^2 / btimesm)}')
   # Calculate average and save in an array in csv format to later add to the main csv file
-  CPS_CSV+=($((CPS_SUM / CPS_INDEXCOUNT)))
+  CPS_CSV+=(${CPS_AVERAGE})
 }
 
 
@@ -990,8 +976,6 @@ do
       ProgressBar ${PERCENTFINISHED} ${_end}
     fi
       
-      # Save current cps into an array for later use
-      saveCPS
     done
     
     if test ${debug_mode} == "true"
