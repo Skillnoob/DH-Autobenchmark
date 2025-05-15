@@ -65,11 +65,12 @@ The config file is named `dh-benchmark.toml` and is located in the same director
 5. **Follow the Instructions**\
    The application will guide you through the process of running the benchmark.
 6. **Collect Hardware Information**\
-   Run the following command to collect the hardware information:
+   Run the following command to collect the hardware information, if needed:
    ```bash
    ./dh-autobenchmark.sh -h
     ```
-
+   *Note: Some commands require elevated privileges to correctly collect the information.\
+            Make sure you are logged into a user with sudo permissions.*
 # Building from Source
 
 1. **Install Java**\
