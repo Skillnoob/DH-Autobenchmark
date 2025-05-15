@@ -17,7 +17,6 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -172,10 +171,9 @@ public class Main {
         AtomicLong benchmarkStartTime = new AtomicLong(0);
         AtomicBoolean pregenComplete = new AtomicBoolean(false);
         AtomicLong elapsedTime = new AtomicLong(0);
-        List<Integer> cpsList = Collections.synchronizedList(new ArrayList<>());
 
         AtomicReference<ProgressBar> progressBar = new AtomicReference<>(null);
-        Pattern dataExtractor = Pattern.compile("(\\d+)\\s*cps,\\s*(\\d+(?:\\.\\d+)?)%");
+        Pattern dataExtractor = Pattern.compile("\\s*(\\d+(?:\\.\\d+)?)%");
 
         // Initialize the progress bar if not in debug mode
         if (!benchmarkConfig.debugMode()) {
@@ -218,21 +216,13 @@ public class Main {
                 }
 
                 // Extract data from the DH generation line
-                if (line.contains("Generated radius:")) {
+                if (progressBar.get() != null && line.contains("Generated radius:")) {
                     Matcher matcher = dataExtractor.matcher(line);
                     if (matcher.find()) {
                         try {
-                            int chunkSpeed = Integer.parseInt(matcher.group(1));
-                            cpsList.add(chunkSpeed);
+                            double percentage = Double.parseDouble(matcher.group(1));
+                            progressBar.get().stepTo(Math.round(percentage));
                         } catch (NumberFormatException ignored) {
-                        }
-
-                        if (progressBar.get() != null) {
-                            try {
-                                double percentage = Double.parseDouble(matcher.group(2));
-                                progressBar.get().stepTo(Math.round(percentage));
-                            } catch (NumberFormatException ignored) {
-                            }
                         }
                     }
                 }
@@ -251,7 +241,7 @@ public class Main {
 
         Path dhDbPath = Paths.get(DH_DB_FILE);
         long dbSize = Files.exists(dhDbPath) ? Files.size(dhDbPath) : 0;
-        int avgCps = (int) cpsList.stream().mapToInt(Integer::intValue).average().orElse(0);
+        int avgCps = (int) (Math.pow(benchmarkConfig.generationRadius() * 2, 2) / Duration.ofMillis(elapsedTime.get()).getSeconds());
         System.out.println("Pregen completed in " + formatDuration(elapsedTime.get()) + ", Chunks per second: " + avgCps + ", Database size: " + Math.round(dbSize / (1024.0 * 1024.0)) + "MB");
         System.out.println();
         return new BenchmarkResult(elapsedTime.get(), dbSize, avgCps);
