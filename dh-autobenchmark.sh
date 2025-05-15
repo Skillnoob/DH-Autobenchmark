@@ -23,10 +23,10 @@ BACKUPHARDWAREINFORMATIONCSV="${DIR}/hardware-information.csv"
 BENCHMARKTIME_SECONDS_MILLISECONDS="do_not_edit"
 BENCHMARKTIME_SUM="0"
 BUFFERCOUNTER="1"
-CPS_SUM="0"
+CPS_AVERAGE="0"
 CPS_TOTALAVERAGE="0"
 CUSTOMDATAPACKFOLDER="${DIR}/custom_datapacks"
-CONFIG="dh-automation.config"
+CONFIG="dh-benchmark.toml"
 DATAPACKFOLDER="${DIR}/world/datapacks"
 DBSIZE_SUM="0"
 ETA_HOUR="0"
@@ -86,9 +86,16 @@ commandAvailable() {
 downloadIfNotExist() {
   if [[ ! -s "${1}" ]]; then
 
-    echo "${1} could not be found." >&2
-    echo "Downloading ${2}" >&2
-    echo "from ${3}" >&2
+    if test ${debug_mode} == "true" 2>/dev/null
+      then
+        echo "${1} could not be found." >&2
+        echo "Downloading ${2}" >&2
+        echo "from ${3}" >&2 
+        sleep 1s
+      else
+      echo "Downloading ${2}" >&2
+    fi
+    
 
     if commandAvailable curl ; then
       curl -# -L -o "${2}" "${3}"
@@ -141,7 +148,7 @@ configCheck() {
   else
       read -r -p "Do you want to edit the config and do a custom run? (Yes/No): " CONFIGANSWER
       
-      if test ${debug_mode} == "true"
+      if test ${debug_mode} == "true" 2>/dev/null
       then
         echo "Config file does not exist" 
         sleep 1s
@@ -187,10 +194,12 @@ seeds=(5057296280818819649 2412466893128258733 3777092783861568240 -850577409713
 # DH SETTINGS # 
 #--------------- 
  
-# This controls the Distant Horizons thread preset used when generating chunks. (Default: I_PAID_FOR_THE_WHOLE_CPU) 
+# This controls the Distant Horizons thread preset used when generating chunks. 
 # Available Presets are: MINIMAL_IMPACT, LOW_IMPACT, BALANCED, AGGRESSIVE, I_PAID_FOR_THE_WHOLE_CPU. 
+# Default: Default: I_PAID_FOR_THE_WHOLE_CPU
 thread_preset="I_PAID_FOR_THE_WHOLE_CPU" 
-# The radius in chunks of the area to generate around the center of the world. (Default: 256)
+# The radius in chunks of the area to generate around the center of the world.
+# Default: 256
 generation_radius="256"
 # The URL to download the Fabric server jar from.
 fabric_download_url="https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.12/1.0.3/server/jar" 
@@ -627,6 +636,9 @@ collectHardwareInformation() {
   # Data preparation
   echo "Collecting CPU information..."
   CPU=$(lscpu | grep 'Model name' | cut -f 2 -d ":" | awk '{$1=$1}1')
+  # Clean up cpu naming scheme (currently only for intel)
+  CPU=$(echo ${CPU} | sed -E 's/\b[0-9]+(st|nd|rd|th) Gen\s+//g' | sed 's/(R)//g; s/(TM)//g' | sed -E 's/\s+(1?-?Core\s+Processor|CPU|Processor)$//g')
+
   CPUCORES=$(lscpu | awk '/^Socket\(s\):/ {sockets=$2} /^Core\(s\) per socket:/ {cores=$4} END {print sockets * cores}')
   CPUTHREADS=$(nproc --all)
   echo "CPU: ${CPU} ${CPUCORES}C/${CPUTHREADS}T"
@@ -864,24 +876,10 @@ printTimeElapsed() {
 }
 
 
-saveCPS() {
-  CPS+=($(echo ${GREPLATESTLOG} | cut -d "," -f 1  | cut -d "(" -f 2 | cut -d " " -f 1))
-}
-
-
 calculateCpsAverageOneRun() {
-  CPS_SUM="0"
-  # Get the sum of the whole array
-  for value in ${CPS[@]}
-  do
-    CPS_SUM=$((CPS_SUM + value))
-  done
-
-  # Get total count of indices
-  CPS_INDEXCOUNT=${#CPS[@]}
-
+  CPS_AVERAGE=$(awk -v btimesm="${BENCHMARKTIME_SECONDS_MILLISECONDS}" -v totalchunks="${generation_radius}" 'BEGIN {printf "%d", ((totalchunks * 2)^2 / btimesm)}')
   # Calculate average and save in an array in csv format to later add to the main csv file
-  CPS_CSV+=($((CPS_SUM / CPS_INDEXCOUNT)))
+  CPS_CSV+=(${CPS_AVERAGE})
 }
 
 
@@ -978,8 +976,6 @@ do
       ProgressBar ${PERCENTFINISHED} ${_end}
     fi
       
-      # Save current cps into an array for later use
-      saveCPS
     done
     
     if test ${debug_mode} == "true"
