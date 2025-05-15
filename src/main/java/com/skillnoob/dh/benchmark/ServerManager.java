@@ -64,7 +64,8 @@ public class ServerManager {
                     }
                 }
             } catch (Exception e) {
-                System.err.println("Error stopping server: " + e.getMessage());
+                System.err.println("Error stopping server:");
+                e.printStackTrace();
             } finally {
                 closeResources();
             }
@@ -153,7 +154,8 @@ public class ServerManager {
             }
             serverProcess = null;
         } catch (IOException e) {
-            System.err.println("Error closing resources: " + e.getMessage());
+            System.err.println("Error closing resources:");
+            e.printStackTrace();
         }
     }
 }

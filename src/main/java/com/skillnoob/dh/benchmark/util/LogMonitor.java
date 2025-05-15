@@ -24,7 +24,8 @@ public class LogMonitor implements AutoCloseable {
                     queue.offer(line);
                 }
             } catch (IOException e) {
-                System.err.println("LogMonitor error: " + e.getMessage());
+                System.err.println("LogMonitor error:");
+                e.printStackTrace();
             }
         }, "LogMonitor-Thread");
         readerThread.setDaemon(true);

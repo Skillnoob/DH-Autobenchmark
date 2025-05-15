@@ -55,7 +55,8 @@ public class Main {
                     FileManager.writeHardwareInfoToCSV("benchmark-results.csv", hardwareInfo);
                 }
             } catch (IOException | InterruptedException e) {
-                System.err.println("Error checking for sudo privileges: " + e.getMessage());
+                System.err.println("Error checking for sudo privileges:");
+                e.printStackTrace();
             }
             return;
         }
@@ -133,7 +134,8 @@ public class Main {
             FileManager.writeResultsToCSV("benchmark-results.csv", seeds, benchmarkResults, formattedAvgTime, avgCps, avgDBSizeInMB, benchmarkConfig.ramGb());
             System.out.println("Results saved to benchmark-results.csv");
         } catch (Exception e) {
-            System.err.println("An error occurred during the benchmark process: " + e.getMessage());
+            System.err.println("An error occurred during the benchmark process:");
+            e.printStackTrace();
         }
     }
 

@@ -126,7 +126,8 @@ public class HardwareInfo {
                 return "Unknown";
             }
         } catch (IOException e) {
-            System.err.println("Error getting current drive model: " + e.getMessage());
+            System.err.println("Error getting current drive model:");
+            e.printStackTrace();
             return "Unknown";
         }
     }

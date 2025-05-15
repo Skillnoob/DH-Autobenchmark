@@ -187,7 +187,8 @@ public class FileManager {
                     try {
                         Files.delete(path);
                     } catch (IOException e) {
-                        System.err.println("Warning: Failed to delete " + path + ": " + e.getMessage());
+                        System.err.println("Warning: Failed to delete " + path + ":");
+                        e.printStackTrace();
                     }
                 });
             }
@@ -239,7 +240,8 @@ public class FileManager {
                                 Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
                             }
                         } catch (IOException e) {
-                            System.err.println("Failed to copy " + relativePath + ": " + e.getMessage());
+                            System.err.println("Failed to copy " + relativePath + ":");
+                            e.printStackTrace();
                         }
                     });
         }
