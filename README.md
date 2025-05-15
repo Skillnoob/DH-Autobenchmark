@@ -70,7 +70,7 @@ The config file is named `dh-benchmark.toml` and is located in the same director
    ./dh-autobenchmark.sh -h
     ```
    *Note: Some commands require elevated privileges to correctly collect the information.\
-            Make sure you are logged into a user with sudo permissions.*
+            Make sure you are logged in with a user that has sudo permissions.*
 # Building from Source
 
 1. **Install Java**\
