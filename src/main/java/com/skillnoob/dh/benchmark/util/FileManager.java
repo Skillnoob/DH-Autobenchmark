@@ -129,7 +129,7 @@ public class FileManager {
     /**
      * Writes benchmark results to a CSV file.
      */
-    public static void writeResultsToCSV(String filePath, List<String> seeds, List<BenchmarkResult> results, String avgTime, int avgCps, long avgDbSizeInMB, int ramGB) throws IOException {
+    public static void writeResultsToCSV(String filePath, List<String> seeds, List<BenchmarkResult> results, String avgTime, long avgCps, long avgDbSizeInMB, int ramGB) throws IOException {
         try (PrintWriter writer = new PrintWriter(filePath)) {
             StringBuilder data = new StringBuilder();
 

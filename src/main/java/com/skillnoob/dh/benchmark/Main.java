@@ -128,7 +128,7 @@ public class Main {
             long avgTime = totalTime / seeds.size();
             long avgDBSizeInMB = Math.round(totalDBSizeInMB / seeds.size());
             String formattedAvgTime = formatDuration(avgTime);
-            int avgCps = (int) benchmarkResults.stream().mapToInt(BenchmarkResult::averageCps).average().orElse(0);
+            long avgCps = (long) benchmarkResults.stream().mapToLong(BenchmarkResult::averageCps).average().orElse(0);
             System.out.println("Average: Elapsed Time: " + formattedAvgTime + ", Cps: " + avgCps + ", Database Size: " + avgDBSizeInMB + " MB");
 
             FileManager.writeResultsToCSV("benchmark-results.csv", seeds, benchmarkResults, formattedAvgTime, avgCps, avgDBSizeInMB, benchmarkConfig.ramGb());
@@ -171,8 +171,8 @@ public class Main {
         serverManager.executeCommand("dh pregen start minecraft:overworld 0 0 " + benchmarkConfig.generationRadius());
 
         AtomicLong benchmarkStartTime = new AtomicLong(0);
-        AtomicBoolean pregenComplete = new AtomicBoolean(false);
         AtomicLong elapsedTime = new AtomicLong(0);
+        AtomicBoolean pregenComplete = new AtomicBoolean(false);
 
         AtomicReference<ProgressBar> progressBar = new AtomicReference<>(null);
         Pattern dataExtractor = Pattern.compile("\\s*(\\d+(?:\\.\\d+)?)%");
@@ -201,13 +201,13 @@ public class Main {
         while (serverManager.isServerRunning() && !pregenComplete.get()) {
             serverManager.waitForLogMessage(line -> {
                 if (line.contains("Starting pregen")) {
-                    benchmarkStartTime.set(System.currentTimeMillis());
+                    benchmarkStartTime.set(System.nanoTime());
                     return false;
                 }
 
                 if (line.contains("Pregen is complete")) {
                     if (benchmarkStartTime.get() != 0) {
-                        elapsedTime.set(System.currentTimeMillis() - benchmarkStartTime.get());
+                        elapsedTime.set(System.nanoTime() - benchmarkStartTime.get());
                     }
                     if (progressBar.get() != null) {
                         progressBar.get().stepTo(100); // Ensure we show 100% at the end
@@ -243,14 +243,14 @@ public class Main {
 
         Path dhDbPath = Paths.get(DH_DB_FILE);
         long dbSize = Files.exists(dhDbPath) ? Files.size(dhDbPath) : 0;
-        int avgCps = (int) (Math.pow(benchmarkConfig.generationRadius() * 2, 2) / Duration.ofMillis(elapsedTime.get()).getSeconds());
+        long avgCps = Math.round(Math.pow(benchmarkConfig.generationRadius() * 2, 2) / Duration.ofNanos(elapsedTime.get()).getSeconds());
         System.out.println("Pregen completed in " + formatDuration(elapsedTime.get()) + ", Chunks per second: " + avgCps + ", Database size: " + Math.round(dbSize / (1024.0 * 1024.0)) + "MB");
         System.out.println();
         return new BenchmarkResult(elapsedTime.get(), dbSize, avgCps);
     }
 
     public static String formatDuration(long millis) {
-        Duration d = Duration.ofMillis(millis);
+        Duration d = Duration.ofNanos(millis);
         long hours = d.toHours();
         long minutes = d.toMinutes() % 60;
         long seconds = d.getSeconds() % 60;

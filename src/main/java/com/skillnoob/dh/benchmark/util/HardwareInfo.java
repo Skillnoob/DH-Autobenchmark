@@ -99,8 +99,6 @@ public class HardwareInfo {
                 Path currentPath = Paths.get(".").toAbsolutePath();
 
                 // This iterates over every partition on every drive and finds the longest mount point
-                // that matches the current path.
-                // Reason being that for example, "/" would match "/mnt/drive1"
                 return systemInfo.getHardware().getDiskStores().stream()
                         .flatMap(disk -> disk.getPartitions().stream()
                                 .filter(part -> part.getMountPoint() != null)
