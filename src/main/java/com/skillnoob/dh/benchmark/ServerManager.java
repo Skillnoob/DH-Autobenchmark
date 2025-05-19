@@ -34,16 +34,14 @@ public class ServerManager {
      * Starts the server with the given command and waits until it finished starting.
      */
     public boolean startServer(List<String> command) throws IOException {
-        ProcessBuilder pb = new ProcessBuilder(command)
-                .directory(new File(SERVER_DIR))
-                .redirectErrorStream(true);
+        ProcessBuilder pb = new ProcessBuilder(command).directory(new File(SERVER_DIR)).redirectErrorStream(true);
 
         serverProcess = pb.start();
         processReader = new BufferedReader(new InputStreamReader(serverProcess.getInputStream(), StandardCharsets.UTF_8));
         processWriter = new PrintWriter(serverProcess.getOutputStream(), true);
         logMonitor = new LogMonitor(processReader, config.debugMode());
 
-        return waitForLogMessage(line -> line.contains("Done"), 120);
+        return waitForLogMessage(line -> line.contains("Done"), (int) (120 * config.timeoutScale()));
     }
 
     /**
@@ -57,7 +55,7 @@ public class ServerManager {
                 } else {
                     executeCommand("stop");
 
-                    boolean terminated = serverProcess.waitFor(60, TimeUnit.SECONDS);
+                    boolean terminated = serverProcess.waitFor((long) (60 * config.timeoutScale()), TimeUnit.SECONDS);
                     if (!terminated) {
                         System.out.println("Server did not stop gracefully, forcing termination");
                         serverProcess.destroyForcibly();

@@ -73,6 +73,7 @@ public class Main {
             System.out.println("- Distant Horizons Download URL: " + benchmarkConfig.dhDownloadUrl());
             System.out.println("- Extra JVM Args: " + benchmarkConfig.extraJvmArgs());
             System.out.println("- Debug Mode: " + benchmarkConfig.debugMode());
+            System.out.println("- Timeout Scale: " + benchmarkConfig.timeoutScale());
 
             serverManager = new ServerManager(benchmarkConfig);
             List<String> serverCmd = serverManager.getServerStartCommand();

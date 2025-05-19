@@ -10,6 +10,7 @@ public record BenchmarkConfig(
         String fabricDownloadUrl,
         String dhDownloadUrl,
         List<String> extraJvmArgs,
-        boolean debugMode
+        boolean debugMode,
+        double timeoutScale
 ) {
 }

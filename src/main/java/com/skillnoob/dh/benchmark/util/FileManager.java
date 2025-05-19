@@ -29,6 +29,7 @@ public class FileManager {
     private static final String DEFAULT_DH_DOWNLOAD_URL = "https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar";
     private static final List<String> DEFAULT_EXTRA_JVM_ARGS = new ArrayList<>();
     private static final boolean DEFAULT_DEBUG_MODE = false;
+    private static final double DEFAULT_TIMEOUT_SCALE = 1.0;
 
     /**
      * Loads the benchmark configuration from a TOML file using NightConfig.
@@ -45,6 +46,7 @@ public class FileManager {
             setDefaultIfMissing(config, "dh_download_url", DEFAULT_DH_DOWNLOAD_URL);
             setDefaultIfMissing(config, "extra_jvm_args", DEFAULT_EXTRA_JVM_ARGS);
             setDefaultIfMissing(config, "debug_mode", DEFAULT_DEBUG_MODE);
+            setDefaultIfMissing(config, "timeout_scale", DEFAULT_TIMEOUT_SCALE);
 
             config.setComment("ram_gb",
                     String.format("""
@@ -103,6 +105,14 @@ public class FileManager {
                             """, DEFAULT_DEBUG_MODE
                     )
             );
+            config.setComment("timeout_scale",
+                    String.format("""
+                            The timeout scale to use.
+                            This can be used to increase the timeout of starting/shutting down the server if the hardware is too slow or large mods are installed.
+                            Default: %s
+                            """, DEFAULT_TIMEOUT_SCALE
+                    )
+            );
 
             int ramGb = config.getInt("ram_gb");
             List<String> seeds = config.get("seeds");
@@ -112,8 +122,9 @@ public class FileManager {
             String dhDownloadUrl = config.get("dh_download_url");
             List<String> extraJvmArgs = config.get("extra_jvm_args");
             boolean debugMode = config.get("debug_mode");
+            double timeoutScale = config.get("timeout_scale");
 
-            return new BenchmarkConfig(ramGb, seeds, threadPreset, generationRadius, fabricDownloadUrl, dhDownloadUrl, extraJvmArgs, debugMode);
+            return new BenchmarkConfig(ramGb, seeds, threadPreset, generationRadius, fabricDownloadUrl, dhDownloadUrl, extraJvmArgs, debugMode, timeoutScale);
         }
     }
 
