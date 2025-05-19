@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class HardwareInfo {
@@ -76,7 +77,7 @@ public class HardwareInfo {
                 .max().orElse(0);
         String memorySpeed = maxSpeedHz > 0
                 ? String.format(" %.0f MT/s", maxSpeedHz / 1_000_000.0)
-                : "";
+                : "? MT/s";
 
         return String.format("%sGB %s%s", sizeString, memoryType, memorySpeed);
     }
@@ -114,8 +115,10 @@ public class HardwareInfo {
                         .map(part -> part.model)
                         .orElse("Unknown");
             } else if (os.contains("linux")) {
-                List<String> findMount = List.of("bash", "-lc", "findmnt -T . -n --nofsroot -o SOURCE");
+                List<String> findMount = List.of("bash", "-lc",
+                        "findmnt -T . -n --nofsroot -o SOURCE || findmnt -T . -n -o SOURCE");
                 String mount = runCommand(findMount).trim();
+                mount = mount.replaceAll("\\[.*$", ""); // for older util-linux versions that don't have --nofsroot
                 List<String> pkName = List.of("bash", "-lc", "lsblk -no PKNAME " + mount);
                 String parentMount = runCommand(pkName).trim();
                 List<String> modelName = List.of("bash", "-lc", "lsblk -dn -o MODEL /dev/" + parentMount);
@@ -133,9 +136,26 @@ public class HardwareInfo {
     private static String runCommand(List<String> cmd) throws IOException {
         ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.redirectErrorStream(true);
-        Process proc = pb.start();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream(), StandardCharsets.UTF_8))) {
-            return reader.lines().collect(Collectors.joining("\n"));
+        Process process = pb.start();
+
+        try {
+            if (!process.waitFor(10, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return "Unknown";
+            }
+
+            if (process.exitValue() != 0) {
+                return "Unknown";
+            }
+
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String result = reader.lines().collect(Collectors.joining("\n"));
+                return result.isBlank() ? "Unknown" : result.trim();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "Unknown";
         }
     }
 }
