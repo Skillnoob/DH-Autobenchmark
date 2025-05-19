@@ -114,7 +114,7 @@ public class HardwareInfo {
                         .map(part -> part.model)
                         .orElse("Unknown");
             } else if (os.contains("linux")) {
-                List<String> findMount = List.of("bash", "-lc", "findmnt -T . -n -o SOURCE");
+                List<String> findMount = List.of("bash", "-lc", "findmnt -T . -n --nofsroot -o SOURCE");
                 String mount = runCommand(findMount).trim();
                 List<String> pkName = List.of("bash", "-lc", "lsblk -no PKNAME " + mount);
                 String parentMount = runCommand(pkName).trim();
