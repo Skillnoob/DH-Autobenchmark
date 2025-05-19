@@ -131,7 +131,7 @@ public class Main {
             long avgCps = (long) benchmarkResults.stream().mapToLong(BenchmarkResult::averageCps).average().orElse(0);
             System.out.println("Average: Elapsed Time: " + formattedAvgTime + ", Cps: " + avgCps + ", Database Size: " + avgDBSizeInMB + " MB");
 
-            FileManager.writeResultsToCSV("benchmark-results.csv", seeds, benchmarkResults, formattedAvgTime, avgCps, avgDBSizeInMB, benchmarkConfig.ramGb());
+            FileManager.writeResultsToCSV("benchmark-results.csv", benchmarkResults, formattedAvgTime, avgCps, avgDBSizeInMB, benchmarkConfig.ramGb());
             System.out.println("Results saved to benchmark-results.csv");
         } catch (Exception e) {
             System.err.println("An error occurred during the benchmark process:");

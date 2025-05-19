@@ -129,7 +129,7 @@ public class FileManager {
     /**
      * Writes benchmark results to a CSV file.
      */
-    public static void writeResultsToCSV(String filePath, List<String> seeds, List<BenchmarkResult> results, String avgTime, long avgCps, long avgDbSizeInMB, int ramGB) throws IOException {
+    public static void writeResultsToCSV(String filePath, List<BenchmarkResult> results, String avgTime, long avgCps, long avgDbSizeInMB, int ramGB) throws IOException {
         try (PrintWriter writer = new PrintWriter(filePath)) {
             StringBuilder data = new StringBuilder();
 
@@ -157,6 +157,11 @@ public class FileManager {
      */
     public static void writeHardwareInfoToCSV(String filePath, List<String> hardwareInfo) throws IOException {
         Path csvPath = Paths.get(filePath);
+        if (!csvPath.toFile().exists()) {
+            System.out.println("The results csv does not exist, you need to run the benchmark first.");
+            return;
+        }
+
         List<String> existingLines = Files.readAllLines(csvPath, StandardCharsets.UTF_8);
         List<String> newLines = new ArrayList<>();
 
