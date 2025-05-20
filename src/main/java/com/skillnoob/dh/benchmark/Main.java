@@ -176,7 +176,7 @@ public class Main {
         AtomicBoolean pregenComplete = new AtomicBoolean(false);
 
         AtomicReference<ProgressBar> progressBar = new AtomicReference<>(null);
-        Pattern dataExtractor = Pattern.compile("\\s*(\\d+(?:\\.\\d+)?)%");
+        Pattern dataExtractor = Pattern.compile("(\\d+(?:\\.\\d+)?)%");
 
         // Initialize the progress bar if not in debug mode
         if (!benchmarkConfig.debugMode()) {
@@ -220,7 +220,7 @@ public class Main {
 
                 // Extract data from the DH generation line
                 if (progressBar.get() != null && line.contains("Generated radius:")) {
-                    Matcher matcher = dataExtractor.matcher(line);
+                    Matcher matcher = dataExtractor.matcher(line.replaceAll(",", "."));
                     if (matcher.find()) {
                         try {
                             double percentage = Double.parseDouble(matcher.group(1));
