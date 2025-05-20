@@ -250,8 +250,8 @@ public class Main {
         return new BenchmarkResult(elapsedTime.get(), dbSize, avgCps);
     }
 
-    public static String formatDuration(long millis) {
-        Duration d = Duration.ofNanos(millis);
+    public static String formatDuration(long nanos) {
+        Duration d = Duration.ofNanos(nanos);
         long hours = d.toHours();
         long minutes = d.toMinutes() % 60;
         long seconds = d.getSeconds() % 60;
