@@ -86,10 +86,11 @@ public class ServerManager {
      */
     public boolean waitForLogMessage(Predicate<String> messagePredicate, int timeoutSeconds) {
         try {
-            long start = System.currentTimeMillis();
-            long timeoutMillis = timeoutSeconds == 0 ? Long.MAX_VALUE : timeoutSeconds * 1000L;
+            long start = System.nanoTime();
+            long timeoutNanos = timeoutSeconds == 0 ? Long.MAX_VALUE : timeoutSeconds * 1_000_000_000L;
+            System.out.println(timeoutNanos + " ns");
 
-            while (isServerRunning() && (System.currentTimeMillis() - start) < timeoutMillis) {
+            while (isServerRunning() && (System.nanoTime() - start) < timeoutNanos) {
                 String line = logMonitor.pollLine(1, TimeUnit.SECONDS);
 
                 if (line != null && messagePredicate.test(line)) {
