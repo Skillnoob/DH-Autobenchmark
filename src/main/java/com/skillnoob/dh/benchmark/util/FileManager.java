@@ -15,6 +15,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class FileManager {
@@ -115,7 +116,8 @@ public class FileManager {
             );
 
             int ramGb = config.getInt("ram_gb");
-            List<String> seeds = config.get("seeds");
+            List<?> rawSeeds = config.get("seeds");
+            List<String> seeds = rawSeeds.stream().map(Object::toString).collect(Collectors.toList());
             String threadPreset = config.get("thread_preset");
             int generationRadius = config.getInt("generation_radius");
             String fabricDownloadUrl = config.get("fabric_download_url");
