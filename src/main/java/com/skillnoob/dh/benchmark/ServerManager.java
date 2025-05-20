@@ -88,7 +88,6 @@ public class ServerManager {
         try {
             long start = System.nanoTime();
             long timeoutNanos = timeoutSeconds == 0 ? Long.MAX_VALUE : timeoutSeconds * 1_000_000_000L;
-            System.out.println(timeoutNanos + " ns");
 
             while (isServerRunning() && (System.nanoTime() - start) < timeoutNanos) {
                 String line = logMonitor.pollLine(1, TimeUnit.SECONDS);
