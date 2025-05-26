@@ -37,7 +37,7 @@ The config file is named `dh-benchmark.toml` and is located in the same director
    Make sure you have `screen` installed. You can install it using your package manager.\
    Debian/Ubuntu:
    ```bash
-    sudo apt-get install screen
+    sudo apt install screen
    ```
    Fedora:
    ```bash
