@@ -55,7 +55,7 @@ public class ServerManager {
                 } else {
                     executeCommand("stop");
 
-                    boolean terminated = serverProcess.waitFor((long) (60 * config.timeoutScale()), TimeUnit.SECONDS);
+                    boolean terminated = serverProcess.waitFor((long) (120 * config.timeoutScale()), TimeUnit.SECONDS);
                     if (!terminated) {
                         System.out.println("Server did not stop gracefully, forcing termination");
                         serverProcess.destroyForcibly();
