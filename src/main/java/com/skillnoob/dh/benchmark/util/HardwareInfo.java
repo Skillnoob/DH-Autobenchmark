@@ -37,7 +37,9 @@ public class HardwareInfo {
         String cleanedCpuName = rawName
                 .replaceAll("\\b\\d+(?:st|nd|rd|th) Gen\\s+", "")
                 .replaceAll("\\(R\\)|\\(TM\\)", "")
-                .replaceFirst("\\s+(\\d+-Core\\s+Processor|CPU|Processor)$", "")
+				.replaceAll("\\s*@\\s*[0-9]+(?:\\.[0-9]+)?\\s*GHz", "")
+                .replaceAll("\\s+\\d+-Core\\s+Processor$|\\s+Processor$|\\bCPU\\b", "")
+				.replaceAll(" {2,}", " ")
                 .trim();
 
         return String.format("%s %dC/%dT", cleanedCpuName,
