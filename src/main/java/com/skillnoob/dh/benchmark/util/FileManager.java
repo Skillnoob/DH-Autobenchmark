@@ -5,16 +5,13 @@ import com.skillnoob.dh.benchmark.Main;
 import com.skillnoob.dh.benchmark.data.BenchmarkConfig;
 import com.skillnoob.dh.benchmark.data.BenchmarkResult;
 
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Stream;
 
 public class FileManager {
@@ -262,5 +259,109 @@ public class FileManager {
                     });
         }
     }
-}
 
+    /**
+     * Loads the benchmark progress from a file.
+     * Returns a list of completed seed indices.
+     */
+    public static List<Integer> loadBenchmarkProgress(String progressFile) {
+        Path path = Paths.get(progressFile);
+        List<Integer> completedSeeds = new ArrayList<>();
+
+        if (!Files.exists(path)) {
+            return completedSeeds;
+        }
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(path.toFile()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("SEED_COMPLETE,")) {
+                    String[] parts = line.split(",");
+                    if (parts.length >= 2) {
+                        try {
+                            int seedIndex = Integer.parseInt(parts[1].trim());
+                            completedSeeds.add(seedIndex);
+                        } catch (NumberFormatException ignored) {
+                            // Skip invalid entries
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error loading benchmark progress: " + e.getMessage());
+        }
+
+        return completedSeeds;
+    }
+
+    /**
+     * Saves seed completion and result data to the progress file.
+     */
+    public static void saveSeedResult(String progressFile, int seedIndex, BenchmarkResult result) {
+        Path path = Paths.get(progressFile);
+
+        try (PrintWriter writer = new PrintWriter(new FileWriter(path.toFile(), true))) {
+            // Format: SEED_COMPLETE:index:elapsedTimeNanos:dbSize:avgCps
+            writer.println("SEED_COMPLETE," + seedIndex + "," +
+                    result.elapsedTime() + "," +
+                    result.dbSize() + "," +
+                    result.averageCps());
+        } catch (IOException e) {
+            System.err.println("Error saving benchmark progress:");
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Loads saved result data for a specific seed.
+     */
+    public static BenchmarkResult loadSeedResult(String progressFile, int seedIndex) {
+        Path path = Paths.get(progressFile);
+
+        if (!Files.exists(path)) {
+            return null;
+        }
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(path.toFile()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("SEED_COMPLETE,")) {
+                    String[] parts = line.split(",");
+                    if (parts.length == 5) {
+                        try {
+                            int index = Integer.parseInt(parts[1].trim());
+                            if (index == seedIndex) {
+                                long elapsedTime = Long.parseLong(parts[2].trim());
+                                long dbSize = Long.parseLong(parts[3].trim());
+                                long avgCps = Long.parseLong(parts[4].trim());
+                                return new BenchmarkResult(elapsedTime, dbSize, avgCps);
+                            }
+                        } catch (NumberFormatException ignored) {
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error loading seed result:");
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    /**
+     * Clears the benchmark progress file.
+     */
+    public static void clearBenchmarkProgress(String progressFile) {
+        Path path = Paths.get(progressFile);
+
+        try {
+            if (Files.exists(path)) {
+                Files.delete(path);
+            }
+        } catch (IOException e) {
+            System.err.println("Error clearing benchmark progress:");
+            e.printStackTrace();
+        }
+    }
+}

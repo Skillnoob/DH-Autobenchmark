@@ -43,3 +43,4 @@ server/
 custom_datapacks/
 dh-benchmark.toml
 benchmark-results.csv
+benchmark-progress.txt

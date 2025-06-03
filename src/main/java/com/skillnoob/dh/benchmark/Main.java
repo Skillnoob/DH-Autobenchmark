@@ -37,6 +37,7 @@ public class Main {
     private static final String WORLD_DATAPACK_DIR = Paths.get(WORLD_DIR, "datapacks").toString();
     private static final String DATA_DIR = Paths.get(WORLD_DIR, "data").toString();
     private static final String DH_DB_FILE = Paths.get(DATA_DIR, "DistantHorizons.sqlite").toString();
+    private static final String PROGRESS_FILE = "benchmark-progress.txt";
 
     private static BenchmarkConfig benchmarkConfig;
     private static ServerManager serverManager;
@@ -105,10 +106,51 @@ public class Main {
 
             List<String> seeds = benchmarkConfig.seeds();
             List<BenchmarkResult> benchmarkResults = new ArrayList<>();
-            // Run the benchmark for each seed.
-            for (int i = 0; i < seeds.size(); i++) {
-                BenchmarkResult result = runBenchmark(seeds.get(i), serverCmd, i);
-                benchmarkResults.add(result);
+
+            // Check for existing progress
+            List<Integer> completedSeeds = FileManager.loadBenchmarkProgress(PROGRESS_FILE);
+            int startSeedIndex = 0;
+
+			if (!completedSeeds.isEmpty()) {
+                startSeedIndex = completedSeeds.stream().max(Integer::compareTo).orElse(-1) + 1;
+
+                if (startSeedIndex < seeds.size()) {
+                    try (Scanner scanner = new Scanner(System.in)) {
+                        System.out.println("Found previous benchmark progress. " + completedSeeds.size() + " out of " + seeds.size() + " seeds were completed.");
+                        System.out.print("Would you like to resume from seed " + seeds.get(startSeedIndex) + "? (Yes/No): ");
+                        String answer = scanner.nextLine();
+
+                        if (answer.equalsIgnoreCase("yes")) {
+							System.out.println("Resuming benchmark from seed " + seeds.get(startSeedIndex));
+
+                            for (int i = 0; i < startSeedIndex; i++) {
+                                BenchmarkResult result = FileManager.loadSeedResult(PROGRESS_FILE, i);
+                                if (result != null) {
+                                    benchmarkResults.add(result);
+                                    System.out.println("Loaded previous result for seed " + seeds.get(i));
+                                } else {
+                                    System.err.println("Could not load result for seed " + seeds.get(i));
+                                }
+                            }
+                        } else {
+                            System.out.println("Starting benchmark from the beginning.");
+                            FileManager.clearBenchmarkProgress(PROGRESS_FILE);
+                        }
+                    }
+                }
+            }
+
+            // Run the benchmark for every non-completed seed
+            for (int i = startSeedIndex; i < seeds.size(); i++) {
+                try {
+                    BenchmarkResult result = runBenchmark(seeds.get(i), serverCmd, i);
+                    benchmarkResults.add(result);
+                    FileManager.saveSeedResult(PROGRESS_FILE, i, result);
+                } catch (Exception e) {
+                    System.err.println("Error during benchmark for seed " + seeds.get(i) + ":");
+                    e.printStackTrace();
+                    return;
+                }
             }
 
             System.out.println("Benchmark completed. Results:");
@@ -134,6 +176,7 @@ public class Main {
 
             FileManager.writeResultsToCSV("benchmark-results.csv", benchmarkResults, formattedAvgTime, avgCps, avgDBSizeInMB, benchmarkConfig.ramGb());
             System.out.println("Results saved to benchmark-results.csv");
+            FileManager.clearBenchmarkProgress(PROGRESS_FILE);
         } catch (Exception e) {
             System.err.println("An error occurred during the benchmark process:");
             e.printStackTrace();
