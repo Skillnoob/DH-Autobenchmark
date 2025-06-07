@@ -26,7 +26,7 @@ public class FileManager {
 	private static final int DEFAULT_GENERATION_RADIUS = 256;
 	private static final String DEFAULT_FABRIC_DOWNLOAD_URL = "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.14/1.0.3/server/jar";
 	private static final String DEFAULT_DH_DOWNLOAD_URL = "https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar";
-	private static final List<String> DEFAULT_EXTRA_JVM_ARGS = new ArrayList<>();
+	private static final String DEFAULT_EXTRA_JVM_ARGS = "";
 	private static final boolean DEFAULT_DEBUG_MODE = false;
 	private static final double DEFAULT_TIMEOUT_SCALE = 1.0;
 
@@ -91,7 +91,8 @@ public class FileManager {
 			config.setComment("extra_jvm_args",
 					String.format("""
 							Extra JVM arguments to pass to the server.
-							Example: ["arg1", "arg2"]
+							Example: "-XX:+UseZGC -XX:AllocatePrefetchStyle=1 -XX:-ZProactive"
+							Note: You don't need to include the -Xmx flag here, it is set automatically based on the ram_gb config value.
 							Default: %s
 							""", DEFAULT_EXTRA_JVM_ARGS
 					)
@@ -119,7 +120,7 @@ public class FileManager {
 			int generationRadius = config.getInt("generation_radius");
 			String fabricDownloadUrl = config.get("fabric_download_url");
 			String dhDownloadUrl = config.get("dh_download_url");
-			List<String> extraJvmArgs = config.get("extra_jvm_args");
+			String extraJvmArgs = config.get("extra_jvm_args");
 			boolean debugMode = config.get("debug_mode");
 			double timeoutScale = config.get("timeout_scale");
 

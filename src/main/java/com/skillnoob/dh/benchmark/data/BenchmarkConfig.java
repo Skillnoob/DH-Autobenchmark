@@ -9,7 +9,7 @@ public record BenchmarkConfig(
         int generationRadius,
         String fabricDownloadUrl,
         String dhDownloadUrl,
-        List<String> extraJvmArgs,
+        String extraJvmArgs,
         boolean debugMode,
         double timeoutScale
 ) {

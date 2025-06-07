@@ -126,7 +126,7 @@ public class ServerManager {
         List<String> command = new ArrayList<>();
         command.add("java");
         command.add("-Xmx" + config.ramGb() + "G");
-        command.addAll(config.extraJvmArgs());
+        command.addAll(List.of(config.extraJvmArgs().split("\\s+")));
         command.add("-jar");
         command.add(FABRIC_JAR);
         command.add("nogui");
