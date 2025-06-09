@@ -27,17 +27,22 @@ CPS_AVERAGE="0"
 CPS_TOTALAVERAGE="0"
 CUSTOMDATAPACKFOLDER="${DIR}/custom_datapacks"
 CONFIG="dh-benchmark.toml"
-DATAPACKFOLDER="${DIR}/world/datapacks"
+DATAPACKFOLDER="${DIR}/server/world/datapacks"
 DBSIZE_SUM="0"
 ETA_HOUR="0"
 ETA_MINUTE="0"
 ETA_SECONDS="0"
-LATESTLOG="${DIR}/logs/latest.log"
+EULAFILE="${DIR}/server/eula.txt"
+FINISHED="false"
+LATESTLOG="${DIR}/server/logs/latest.log"
+PROGRESS="false"
+PROGRESSFILE="${DIR}/benchmark-progress.txt"
 QUIT="NO"
 RESULTSCSVFILE="${DIR}/benchmark-results.csv"
 RUN="1"
-SERVERPROPERTIES=${DIR}"/server.properties"
+SERVERPROPERTIES="${DIR}/server/server.properties"
 SCREEN="dh-automation-benchmark"
+WORLDFOLDER="${DIR}/server/world"
 
 ## Arrays ##
 CPS=()
@@ -56,6 +61,10 @@ RUNTIMES=()
 # 7 = Server did not start correctly
 # 8 = A File could not be deleted or overwritten
 # 9 = Not able to delete world folder
+# 10 = Folder "server" could not be created, check if you have valid permissions
+# 11 = Config file could not be created
+# 12 = Invalid Answer in configCheck
+# 13 = Not able to use any editor to edit the config file
 # 100 = CTRL+C detected, shut down server and exited script
 
 
@@ -108,13 +117,13 @@ downloadIfNotExist() {
 
     if [[ -s "${2}" ]]; then
       echo "Download complete." >&2
-      if test ${debug_mode} == "true"
+      if test ${debug_mode} == "true" 2>/dev/null
       then
         echo "true" 
         sleep 1s
       fi
     else
-      if test ${debug_mode} == "true"
+      if test ${debug_mode} == "true" 2>/dev/null
       then
         echo "false" 
         sleep 1s
@@ -122,7 +131,7 @@ downloadIfNotExist() {
     fi
 
   else
-    if test ${debug_mode} == "true"
+    if test ${debug_mode} == "true" 2>/dev/null
     then
       echo "${1} present."
       echo "false" 
@@ -132,29 +141,8 @@ downloadIfNotExist() {
 }
 
 
-# check if config file exists, otherwise create config file and fill it with necessary entries
-configCheck() {
-  if test -s ${DIR}/dh-automation.config 2>/dev/null
-  then
-      # Config file exists
-      read -r -p "Do you want to edit the config and do a custom run? (Yes/No): " CONFIGANSWER
-      if test ${CONFIGANSWER} == "Yes" || test ${CONFIGANSWER} == "yes"
-      then 
-        nano ${DIR}/${CONFIG}
-        echo "Edited config file"
-      else
-        echo "Using available benchmark config!"
-      fi
-  else
-      read -r -p "Do you want to edit the config and do a custom run? (Yes/No): " CONFIGANSWER
-      
-      if test ${debug_mode} == "true" 2>/dev/null
-      then
-        echo "Config file does not exist" 
-        sleep 1s
-      fi
-       
-      echo '#################################################### 
+createConfig(){
+  echo '#################################################### 
 # DISTANT HORIZONS COMMUNITY AUTO-BENCHMARK-SCRIPT # 
 #################################################### 
 
@@ -177,7 +165,9 @@ debug_mode="false"
 # Default: 8
 ram_gb="8"
 
-# Extra JVM arguments to pass to the server. 
+# Extra JVM arguments to pass to the server.
+# Example: "-XX:+UseZGC -XX:AllocatePrefetchStyle=1 -XX:-ZProactive"
+# Note: You do not need to include the -Xmx flag here, it is set automatically based on the ram_gb config value.
 # Default: None
 extra_jvm_args=""
  
@@ -205,16 +195,85 @@ generation_radius="256"
 fabric_download_url="https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.12/1.0.3/server/jar" 
 # The URL to download the Distant Horizons mod jar from. 
 dh_download_url="https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar"' >${CONFIG}
-  echo "Config created."
+}
 
-  if test ${CONFIGANSWER} == "Yes"
-  then 
-    nano ${DIR}/${CONFIG}
-    echo "Using edited config file!"
+
+# check if config file exists, otherwise create config file and fill it with necessary entries
+configCheck() {
+  if test -s ${DIR}/${CONFIG} 2>/dev/null
+  then
+      # Config file exists
+      read -r -p "Do you want to edit the current config, keep the current config or do a standardized run? (edit/keep/standard): " CONFIGANSWER
+
+      case ${CONFIGANSWER} in
+      Edit | edit)
+        if test ${debug_mode} == "true" 2>/dev/null
+        then
+          echo "Using locally set editor" 
+          sleep 1s
+        fi
+        if "${EDITOR:-vi}" ${CONFIG}
+        then
+          echo "Using edited config for the benchmark"
+        else
+          if test ${debug_mode} == "true" 2>/dev/null
+          then
+            echo "Using nano as the editor" 
+            sleep 1s
+          fi
+          if nano ${CONFIG}
+          then
+            echo "Using edited config for the benchmark"
+          else
+            echo "Could not use any editor for the config"
+            echo "Exiting script.."
+            exit 13
+          fi
+        fi
+      ;;
+      Keep | keep)
+        echo "Using current available config"
+      ;;
+      Standard | standard)
+        echo "Using standardized config!"
+        createConfig
+      ;;
+      *)
+        echo "Invalid Answer: ${CONFIGANSWER}"
+        exit 12
+      ;;
+    esac
   else
-    echo "Using standardized benchmark config!"
-  fi
+      if test ${debug_mode} == "true" 2>/dev/null
+      then
+        echo "Config file does not exist, creating fresh config file" 
+        sleep 1s
+      fi
+  
+      if createConfig
+      then
+        # Debug output
+        if test ${debug_mode} == "true" 2>/dev/null
+        then
+          echo "Config file created" 
+        fi
+        
+        # User input
+        read -r -p "Do you want to edit the config and do a custom run? (Yes/No): " CONFIGANSWER
 
+        # Reacting to user input
+        if test ${CONFIGANSWER} == "Yes"
+        then 
+          nano ${DIR}/${CONFIG}
+          echo "Using edited config file!"
+        else
+          echo "Using standardized benchmark config!"
+          createConfig
+        fi
+      else
+        echo "Config could not be created!"
+        exit 11
+      fi
 fi
 }
 
@@ -223,7 +282,7 @@ fi
 screenCheck() {
   if commandAvailable screen
   then
-    if test ${debug_mode} == "true"
+    if test ${debug_mode} == "true" 2>/dev/null
     then
       echo "Screen is installed"
       sleep 1s
@@ -297,14 +356,14 @@ sync-chunk-writes=true
 text-filtering-config=
 use-native-transport=true
 view-distance=10
-white-list=true" >${DIR}/server.properties
+white-list=true" >${SERVERPROPERTIES}
 }
 
 
 serverPropertiesCheck() {
-  if test -s server.properties
+  if test -s ${SERVERPROPERTIES}
   then
-    if test ${debug_mode} == "true"
+    if test ${debug_mode} == "true" 2>/dev/null
     then
     echo "server.properties exists"
       sleep 1s
@@ -316,25 +375,25 @@ serverPropertiesCheck() {
 
 
 downloadFabricAndDistantHorizons() {
-  downloadIfNotExist ${DIR}/fabricserver.jar ${DIR}/fabricserver.jar ${fabric_download_url}
+  downloadIfNotExist ${DIR}/server/fabricserver.jar ${DIR}/server/fabricserver.jar ${fabric_download_url}
   
-  if test -d ${DIR}/mods
+  if test -d ${DIR}/server/mods
   then
-    if test ${debug_mode} == "true"
+    if test ${debug_mode} == "true" 2>/dev/null
     then
       echo "mods folder exists"
       sleep 1s
     fi
   else
-    if test ${debug_mode} == "true"
+    if test ${debug_mode} == "true" 2>/dev/null
     then
     echo "mods folder does not exist, creating folder..."
       sleep 1s
     fi
 
-    if mkdir ${DIR}/mods
+    if mkdir ${DIR}/server/mods
     then
-      if test ${debug_mode} == "true"
+      if test ${debug_mode} == "true" 2>/dev/null
       then
       echo 'folder "mods" created' 
         sleep 1s
@@ -345,13 +404,13 @@ downloadFabricAndDistantHorizons() {
     fi
   fi
 
-  downloadIfNotExist ${DIR}/mods/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar ${DIR}/mods/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar ${dh_download_url}
+  downloadIfNotExist ${DIR}/server/mods/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar ${DIR}/server/mods/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar ${dh_download_url}
 }
 
 
 eulaCheck() {
   # Source: https://github.com/Griefed/ServerPackCreator/blob/7.1.3/serverpackcreator-api/src/main/resources/de/griefed/resources/server_files/default_template.sh
-  if [[ ! -s "${DIR}/eula.txt" ]]
+  if [[ ! -s "${EULAFILE}" ]]
   then
 
     echo "Mojang's EULA has not yet been accepted. In order to run a Minecraft server, you must accept Mojang's EULA."
@@ -363,8 +422,8 @@ eulaCheck() {
     if [[ "${ANSWER}" == "I agree" ]]
     then
       echo "User agreed to Mojang's EULA."
-      echo "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://aka.ms/MinecraftEULA)." >eula.txt
-      echo "eula=true" >>eula.txt
+      echo "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://aka.ms/MinecraftEULA)." >${EULAFILE}
+      echo "eula=true" >>${EULAFILE}
     else
       echo "User did not agree to Mojang's EULA. Entered: ${ANSWER}. You can not run a Minecraft server unless you agree to Mojang's EULA."
       exit 4
@@ -376,9 +435,11 @@ eulaCheck() {
 
 startServer() {
   printf "Starting Server! ▀ "
-  screen -d -m -S ${SCREEN} java -Xmx${ram_gb}G ${extra_jvm_args} -jar ${DIR}/fabricserver.jar nogui &
+  # Go into the server folder to have all server files being created in the server folder
+  cd ${DIR}/server
+  screen -d -m -S ${SCREEN} java -Xmx${ram_gb}G ${extra_jvm_args} -jar ${DIR}/server/fabricserver.jar nogui &
   # Wait for the server to generate a new 'latest.log'
-  sleep 2s
+  sleep 5s
 
   # Wait for server to succesfully start
   while ! grep -w "Done" <${LATESTLOG} 1>/dev/null 2>/dev/null
@@ -402,6 +463,8 @@ startServer() {
     fi
   done
   echo " - Server started!"
+  # Go back to the original directory to prevent bugs
+  cd ${DIR}
 }
 
 
@@ -409,7 +472,7 @@ setSeed() {
   if test ${1} -le ${#seeds[@]} && test ${1} -gt 0
   then
     echo "level-seed=${seeds[$((${1}-1))]}" >>${SERVERPROPERTIES}
-    if test ${debug_mode} == "true"
+    if test ${debug_mode} == "true" 2>/dev/null
       then
         echo "Set seed to ${seeds[$((${1}-1))]}"
         sleep 1s
@@ -469,17 +532,17 @@ stopServer() {
 
 
 worldDelete() {
-  if test -d ${DIR}/world
+  if test -d ${DIR}/server/world
   then
-    if test ${debug_mode} == "true"
-    then
+    if test ${debug_mode} == "true" 2>/dev/null
+    then 
       echo "World folder detected, trying to delete..."
       sleep 1s
     fi
 
-    if rm -r ${DIR}/world
+    if rm -r ${DIR}/server/world
     then
-      if test ${debug_mode} == "true"
+      if test ${debug_mode} == "true" 2>/dev/null
       then
         echo "Successfully deleted previous world!" 
         sleep 1s
@@ -490,7 +553,7 @@ worldDelete() {
       exit 9
     fi
   else
-    if test ${debug_mode} == "true"
+    if test ${debug_mode} == "true" 2>/dev/null
     then
       echo "No world folder detected!"
       sleep 1s
@@ -504,7 +567,7 @@ removeFileIfExists() {
   do
     if test -s ${FILE}
     then
-      if test ${debug_mode} == "true"
+      if test ${debug_mode} == "true" 2>/dev/null
       then
         echo "File ${FILE} exists, trying to delete..."
         sleep 1s
@@ -512,7 +575,7 @@ removeFileIfExists() {
  
       if rm ${FILE}
       then
-        if test ${debug_mode} == "true"
+        if test ${debug_mode} == "true" 2>/dev/null
         then
           echo "Successfully removed File ${FILE}"
           sleep 1s
@@ -521,7 +584,7 @@ removeFileIfExists() {
         echo "Could not delete File ${FILE}, trying to overwrite..."
         if echo "" >${FILE}
         then
-          if test ${debug_mode} == "true"
+          if test ${debug_mode} == "true" 2>/dev/null
           then
             echo "Successfully overwritten File ${FILE}"
             sleep 1s
@@ -533,7 +596,7 @@ removeFileIfExists() {
         fi
       fi
     else
-      if test ${debug_mode} == "true"
+      if test ${debug_mode} == "true" 2>/dev/null
       then
         echo "Could not find ${FILE}"
         sleep 1s
@@ -572,14 +635,14 @@ getDatapacksIfExist() {
 
 if test -d ${CUSTOMDATAPACKFOLDER}
 then
-  if test ${debug_mode} == "true"
+  if test ${debug_mode} == "true" 2>/dev/null
   then
     echo "${CUSTOMDATAPACKFOLDER} folder exists"
     sleep 1s
   fi
   if test -n "$(ls ${CUSTOMDATAPACKFOLDER} 2>/dev/null)" 
   then
-    if test ${debug_mode} == "true"
+    if test ${debug_mode} == "true" 2>/dev/null
     then
       echo "Datapacks exist, moving them"
       sleep 1s
@@ -587,7 +650,7 @@ then
 
     if mkdir -p ${DATAPACKFOLDER}
     then
-      if test ${debug_mode} == "true"
+      if test ${debug_mode} == "true" 2>/dev/null
       then
         echo "created ${DATAPACKFOLDER}"
         sleep 1s
@@ -603,13 +666,13 @@ then
     do
       if cp ${CUSTOMDATAPACKFOLDER}/${datapack} ${DATAPACKFOLDER}
       then
-        if test ${debug_mode} == "true"
+        if test ${debug_mode} == "true" 2>/dev/null
         then
           echo "Successfully copied ${datapack}"
           sleep 1s
         fi
       else
-        if test ${debug_mode} == "true"
+        if test ${debug_mode} == "true" 2>/dev/null
           then
             echo "Could not copy ${datapack}"
             sleep 1s
@@ -620,7 +683,7 @@ then
     echo "No datapacks in ${CUSTOMDATAPACKFOLDER}, did you forget to delete the folder?"
   fi
 else
-  if test ${debug_mode} == "true"
+  if test ${debug_mode} == "true" 2>/dev/null
   then
     echo "${CUSTOMDATAPACKFOLDER} folder does not exist, datapacks will not be used."
     sleep 1s
@@ -637,7 +700,10 @@ collectHardwareInformation() {
   echo "Collecting CPU information..."
   CPU=$(lscpu | grep 'Model name' | cut -f 2 -d ":" | awk '{$1=$1}1')
   # Clean up cpu naming scheme (currently only for intel)
-  CPU=$(echo ${CPU} | sed -E 's/\b[0-9]+(st|nd|rd|th) Gen\s+//g' | sed 's/(R)//g; s/(TM)//g' | sed -E 's/\s+(1?-?Core\s+Processor|CPU|Processor)$//g')
+  CPU=$(echo "${CPU}" | sed -E 's/\b[0-9]+(st|nd|rd|th) Gen[[:space:]]+//g' | sed 's/(R)//g; s/(TM)//g' | 
+        sed -E 's/[[:space:]]*@[[:space:]]*[0-9]+(\.[0-9]+)?[[:space:]]*GHz//g' | sed 's/ with Radeon Graphics//g' | sed 's/ CPU//g' | 
+        sed -E 's/[[:space:]]+[0-9]+-Core[[:space:]]+Processor//g' | sed 's/[[:space:]]\{2,\}/ /g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  
 
   CPUCORES=$(lscpu | awk '/^Socket\(s\):/ {sockets=$2} /^Core\(s\) per socket:/ {cores=$4} END {print sockets * cores}')
   CPUTHREADS=$(nproc --all)
@@ -651,7 +717,7 @@ collectHardwareInformation() {
     echo 'Please make sure that the package "dmidecode" is installed with your linux system otherwise the following data collection will not work.'
     sleep 3s
     # Collect RAM information
-    if test ${debug_mode} == "true"
+    if test ${debug_mode} == "true" 2>/dev/null
     then
       echo "Collecting RAM information..."
       sleep 1s
@@ -669,10 +735,13 @@ collectHardwareInformation() {
       HARDWAREINFORMATION+=("${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED},")
     else
       echo "RAM information could not be collected!"
+      RAMSIZETOTAL="xGB"
+      RAMTYPE="Unknown"
+      RAMSPEED="xxxxMT/s"
     fi
 
     # Collect disk information
-    if test ${debug_mode} == "true"
+    if test ${debug_mode} == "true" 2>/dev/null
     then
       echo "Collecting Disk information..."
       sleep 1s
@@ -696,6 +765,8 @@ collectHardwareInformation() {
       HARDWAREINFORMATION+=("${DISKMODEL} ${DISKSIZE}GB")
     else
       echo "Disk information could not be collected!"
+      DISKMODEL="Unknown"
+      DISKSIZE="xGB"
     fi
 
     HARDWAREINFORMATION=($(echo ${HARDWAREINFORMATION[@]} | tr " " "_" | tr "," " "))
@@ -704,7 +775,7 @@ collectHardwareInformation() {
     if echo ${HARDWAREINFORMATIONCSV} >${BACKUPHARDWAREINFORMATIONCSV}
     then
 
-      if test ${debug_mode} == "true"
+      if test ${debug_mode} == "true" 2>/dev/null
       then
         echo "Hardware information added to backup csv file!"
         sleep 1s
@@ -718,7 +789,7 @@ collectHardwareInformation() {
 
       INCOMPLETEDATA=($(echo ${INCOMPLETEDATA[@]} | tr " " "," | tr "_" " "))
 
-      if test ${debug_mode} == "true"
+      if test ${debug_mode} == "true" 2>/dev/null
       then
         # Labeling Results CSV file for debug purposes
         if echo "CPU,RAM,DRIVE,Allocated RAM,Run 1,Run 2,Run 3,Run 4,Run 5,Average Time,Average Chunks per Second,DB Size Run 1,DB Size Run 2,DB Size Run 3,DB Size Run 4,DB Size Run 5,Average DB Size,----DEBUG TRUE----" >${RESULTSCSVFILE} \
@@ -736,11 +807,12 @@ collectHardwareInformation() {
         # Not labeling Results CSV file for automatic importing
         if echo ${INCOMPLETEDATA[@]} >${RESULTSCSVFILE}
         then
-          if test ${debug_mode} == "true"
+          if test ${debug_mode} == "true" 2>/dev/null
           then
             echo "Added cleaned csv formatted data to csv file"
             sleep 1s
           fi
+          
           removeFileIfExists ${BACKUPHARDWAREINFORMATIONCSV}
         else
           benchmarkResultsCSVCreate
@@ -761,7 +833,7 @@ collectHardwareInformation() {
       echo "Could not add hardware information to csv file, please provide both ${BACKUPHARDWAREINFORMATIONCSV} and ${RESULTSCSVFILE} when submitting!"
     fi
   else
-    echo 'The user did not accept, please execute the script with elevated privileges as shown to add the hardware information to the .csv file: "./dh-benchmark.sh -h"'
+    echo 'The user did not accept, please execute the script with elevated privileges as shown to add the hardware information to the .csv file: "./dh-autobenchmark.sh -h"'
   fi
 
   echo "-----------------------"
@@ -791,7 +863,7 @@ fillBenchmarkResultsCSV() {
   CPSVARIABLE=${CPS_CSV[@]}
 
 
-  if test ${debug_mode} == "true"
+  if test ${debug_mode} == "true" 2>/dev/null
   then
     # Add the time and db size of every run to the main csv file
     if echo "CPU,RAM,DRIVE,Allocated RAM,Run 1,Run 2,Run 3,Run 4,Run 5,Average Time,Average Chunks per Second,DB Size Run 1,DB Size Run 2,DB Size Run 3,DB Size Run 4,DB Size Run 5,Average DB Size" >${RESULTSCSVFILE} \
@@ -799,6 +871,11 @@ fillBenchmarkResultsCSV() {
     then
         echo "Added run times and db sizes and averages to main csv file!"
         sleep 1s
+
+        if test ${PROGRESS} == "true"
+          then
+            removeFileIfExists ${PROGRESSFILE}
+        fi
     else
       echo "Could not add run times and db sizes to main csv file."
       echo "Please provide this information when submitting:"
@@ -811,10 +888,15 @@ fillBenchmarkResultsCSV() {
     # Add the time and db size of every run to the main csv file
     if echo "CPU,RAM,DRIVE,"${ram_gb}"GB,"$(echo ${RUNTIMESVARIABLE} | tr -d " ")${BENCHMARKTIME_AVERAGE_CSV}${CPS_TOTALAVERAGE}","$(echo ${DBSIZESVARIABLE} | tr -d " ")${DBSIZE_AVERAGE_CSV} >${RESULTSCSVFILE}
     then
-      if test ${debug_mode} == "true"
+      if test ${debug_mode} == "true" 2>/dev/null
       then
         echo "Added run times and db sizes and averages to main csv file!"
         sleep 1s
+      fi
+      
+      if test ${PROGRESS} == "true" 2>/dev/null || test ${FINISHED} == "true" 2>/dev/null
+          then
+            removeFileIfExists ${PROGRESSFILE}
       fi
     else
       echo "Could not add run times and db sizes to main csv file."
@@ -833,7 +915,7 @@ benchmarkResultsCSVCreate() {
   then
     fillBenchmarkResultsCSV
   else
-    if test ${debug_mode} == "true"
+    if test ${debug_mode} == "true" 2>/dev/null
     then
       echo "${RESULTSCSVFILE} could not be created beforehand"
       echo "Filling ${RESULTSCSVFILE} with data without creating it beforehand"
@@ -893,7 +975,126 @@ calculateCpsAverageTotal(){
   CPS_TOTALAVERAGE=$((CPSTOTAL_SUM / 5))
 }
 
+createServerFolderIfNotExist(){
+  if test -d ${DIR}/server 2>/dev/null
+  then
+    if test ${debug_mode} == "true" 2>/dev/null
+    then
+      echo "${DIR}/server exists!" 
+    fi
+  else
+    if mkdir ${DIR}/server 
+    then
+      if test ${debug_mode} == "true" 2>/dev/null
+      then
+        echo "${DIR}/server created successfully!" 
+      fi
+    else
+      echo "Could not create ${DIR}/server, please check your permissions!"
+      echo "Exiting Script.."
+      exit 10
+    fi
+  fi
+}
 
+
+createEmptyProgressFile(){
+  echo -ne "CPU,RAM,DRIVE\n">${PROGRESSFILE}
+}
+
+
+readProgressFileAndAppendToArrays(){
+  # Progressdatei einlesen und die Werte zu den zugehörigen Arrays hinzufügen
+        
+  PROGRESSFILEREAD=$(tail -n $((PROGRESSLINES-1)) <${PROGRESSFILE} |  tr "," " ")
+  TEMPCOUNT=1
+
+  for DATA in ${PROGRESSFILEREAD}
+  do
+      if test ${TEMPCOUNT} -ge 4
+      then
+          TEMPCOUNT=1
+      fi
+      if test ${TEMPCOUNT} -eq 1
+      then
+          RUNTIMES+=($(awk -v time="${DATA}" 'BEGIN {printf "%02d\n", (time/60)/60}'):$(awk -v time="${DATA}" 'BEGIN {printf "%02d\n", (time / 60) % 60}'):$(awk -v time="${DATA}" 'BEGIN {printf "%06.3f\n", time % 60}')",")
+
+
+          BENCHMARKTIME_SUM=$(awk -v sum="${BENCHMARKTIME_SUM}" -v benchtimeonerun="${DATA}" 'BEGIN {printf "%.3f", sum + benchtimeonerun}')","
+      fi
+      if test ${TEMPCOUNT} -eq 2
+      then
+          DBSIZES+=(${DATA}",")
+
+          DBSIZE_SUM=$(awk -v sum="${DBSIZE_SUM}" -v dbsizeonerun="${DATA}" 'BEGIN {printf "%.3f", sum + dbsizeonerun}')
+      fi
+      if test ${TEMPCOUNT} -eq 3
+      then
+          CPS_CSV+=(${DATA})
+
+          TEMPCOUNT_RUN=$((++TEMPCOUNT_RUN))
+      fi
+      TEMPCOUNT=$((++TEMPCOUNT))
+  done
+}
+
+
+checkProgress(){
+  if test -s ${PROGRESSFILE}
+  then
+    PROGRESSLINES=$(wc -l <${PROGRESSFILE})
+    if test ${PROGRESSLINES} -gt 1
+    then
+      PROGRESS="true"
+      if test ${PROGRESSLINES} -ge 5
+      then
+        echo "Runs already completed, converting to csv format"
+        readProgressFileAndAppendToArrays
+
+        calculateCpsAverageTotal
+
+        benchmarkResultsCSVCreate
+
+        collectHardwareInformation
+      fi
+
+      read -r -p "There is already known progress for $((PROGRESSLINES-1)) run(s), would you like to continue on run ${PROGRESSLINES}? (Yes/No): " PROGRESSANSWER
+      
+      if test ${PROGRESSANSWER} == "Yes"
+      then
+        readProgressFileAndAppendToArrays
+
+        echo "Continuing benchmark from run ${PROGRESSLINES} onwards"
+        RUN=${PROGRESSLINES}
+      else
+        echo "Starting the benchmark from run 1 in 20 seconds!"
+        sleep 20s
+        createEmptyProgressFile
+      fi
+    else
+      if test ${debug_mode} == "true" 2>/dev/null
+      then
+        echo "${PROGRESSFILE} exists but progresslines is <=1, creating clean progress file"
+      fi
+      createEmptyProgressFile
+    fi
+  else
+    if test ${debug_mode} == "true" 2>/dev/null
+    then
+      echo "${PROGRESSFILE} does not exist, creating clean progress file"
+    fi
+    createEmptyProgressFile
+  fi
+}
+
+appendProgressToProgressFile(){
+  # Add Runtime to txt file
+  echo -ne ${BENCHMARKTIME_SECONDS_MILLISECONDS}"," >>${PROGRESSFILE}
+  # Add DBSize to txt file
+  echo -ne ${DBSIZEMB}"MB," >>${PROGRESSFILE}
+  # Add Average CPS from the run to txt file
+  echo -ne ${CPS_AVERAGE}"\n" >>${PROGRESSFILE}
+}
 
 ## Main structure
 
@@ -910,6 +1111,9 @@ while getopts ":h" OPTION
     esac
   done
 
+# Check if the folder "server" exists, otherwise create it
+createServerFolderIfNotExist
+
 # Check for dh-automation.config
 configCheck
 
@@ -922,6 +1126,9 @@ downloadFabricAndDistantHorizons
 
 # Check if eula exists and if not, ask the user to accept it
 eulaCheck
+
+# Check for older benchmark progress
+checkProgress
 
 # Five runs (one for every seed)
 while ! test ${RUN} -ge 6
@@ -963,7 +1170,7 @@ do
 
       # Check if CTRL+C has been pressed
       checkCTRLC
-    if test ${debug_mode} == "true"
+    if test ${debug_mode} == "true" 2>/dev/null
     then
       GREPLATESTLOG=$(grep -w "Generated radius" <${LATESTLOG} | tail -n 1)
       echo ${GREPLATESTLOG}
@@ -978,7 +1185,7 @@ do
       
     done
     
-    if test ${debug_mode} == "true"
+    if test ${debug_mode} == "true" 2>/dev/null
     then
       echo "Pregen completed 100%"
     else
@@ -1000,11 +1207,14 @@ do
     RUNTIMES+=($(awk -v time="${BENCHMARKTIME_SECONDS_MILLISECONDS}" 'BEGIN {printf "%02d\n", (time/60)/60}'):$(awk -v time="${BENCHMARKTIME_SECONDS_MILLISECONDS}" 'BEGIN {printf "%02d\n", (time / 60) % 60}'):$(awk -v time="${BENCHMARKTIME_SECONDS_MILLISECONDS}" 'BEGIN {printf "%06.3f\n", time % 60}')",")
     
     # Add db sizes to DBSIZES array
-    DBSIZE=$(stat -c '%s' ${DIR}/world/data/DistantHorizons.sqlite)
+    DBSIZE=$(stat -c '%s' ${WORLDFOLDER}/data/DistantHorizons.sqlite)
     DBSIZEMB=$((DBSIZE / (1024*1024)))
     DBSIZE_SUM=$(awk -v sum="${DBSIZE_SUM}" -v dbsizeonerun="${DBSIZEMB}" 'BEGIN {printf "%.3f", sum + dbsizeonerun}')
     
     DBSIZES+=(${DBSIZEMB}"MB,")
+
+    # Add results to another txt file to save the progress
+    appendProgressToProgressFile
 
     # User output
     echo -e "\nPregen completed in $(awk -v time="${BENCHMARKTIME_SECONDS_MILLISECONDS}" 'BEGIN {printf "%02d\n", (time/60)/60}'):$(awk -v time="${BENCHMARKTIME_SECONDS_MILLISECONDS}" 'BEGIN {printf "%02d\n", (time / 60) % 60}'):$(awk -v time="${BENCHMARKTIME_SECONDS_MILLISECONDS}" 'BEGIN {printf "%06.3f\n", time % 60}'), Average Chunks per second: $(echo ${CPS_CSV[$((RUN-1))]} | tr -d ","), Database size: ${DBSIZEMB}MB"
@@ -1013,7 +1223,7 @@ do
   fi  
   RUN=$((++RUN)) 
 done
-
+FINISHED="true"
 calculateCpsAverageTotal
 
 benchmarkResultsCSVCreate
