@@ -137,7 +137,7 @@ public class ServerManager {
     }
 
     /**
-     * Closes resources used by the server manager.
+     * Closes resources used by the server manager, makes sure data is cleaned up.
      */
     private void closeResources() {
         try {
