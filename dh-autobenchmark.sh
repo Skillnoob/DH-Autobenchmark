@@ -438,8 +438,12 @@ startServer() {
   # Go into the server folder to have all server files being created in the server folder
   cd ${DIR}/server
   screen -d -m -S ${SCREEN} java -Xmx${ram_gb}G ${extra_jvm_args} -jar ${DIR}/server/fabricserver.jar nogui &
+  
   # Wait for the server to generate a new 'latest.log'
-  sleep 5s
+  while ! test -f ${DIR}/server/logs/latest.log
+  do
+    sleep 1s
+  done
 
   # Wait for server to succesfully start
   while ! grep -w "Done" <${LATESTLOG} 1>/dev/null 2>/dev/null
@@ -928,7 +932,7 @@ benchmarkResultsCSVCreate() {
 
 printETA() {
 
-  ETA=$(echo ${GREPLATESTLOG} | cut -d "," -f 3 | cut -d ":" -f 2)
+  ETA=$(echo ${GREPLATESTLOG} | cut -d ":" -f 6)
 
   for time in ${ETA}
     do
