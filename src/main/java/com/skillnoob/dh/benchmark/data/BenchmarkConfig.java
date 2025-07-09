@@ -9,8 +9,11 @@ public record BenchmarkConfig(
         int generationRadius,
         String fabricDownloadUrl,
         String dhDownloadUrl,
+		String chunkyDownloadUrl,
+		String fapiDownloadUrl,
         String extraJvmArgs,
         boolean debugMode,
+		boolean chunkyMode,
         double timeoutScale
 ) {
 }

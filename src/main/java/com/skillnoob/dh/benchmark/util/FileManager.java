@@ -26,8 +26,11 @@ public class FileManager {
 	private static final int DEFAULT_GENERATION_RADIUS = 256;
 	private static final String DEFAULT_FABRIC_DOWNLOAD_URL = "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.14/1.0.3/server/jar";
 	private static final String DEFAULT_DH_DOWNLOAD_URL = "https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar";
+	private static final String DEFAULT_CHUNKY_DOWNLOAD_URL = "https://cdn.modrinth.com/data/fALzjamp/versions/RVFHfo1D/Chunky-Fabric-1.4.23.jar";
+	private static final String DEFAULT_FAPI_DOWNLOAD_URL = "https://cdn.modrinth.com/data/P7dR8mSH/versions/19viawBV/fabric-api-0.116.4%2B1.21.1.jar";
 	private static final String DEFAULT_EXTRA_JVM_ARGS = "";
 	private static final boolean DEFAULT_DEBUG_MODE = false;
+	private static final boolean DEFAULT_CHUNKY_MODE = false;
 	private static final double DEFAULT_TIMEOUT_SCALE = 1.0;
 
 	/**
@@ -43,8 +46,11 @@ public class FileManager {
 			setDefaultIfMissing(config, "generation_radius", DEFAULT_GENERATION_RADIUS);
 			setDefaultIfMissing(config, "fabric_download_url", DEFAULT_FABRIC_DOWNLOAD_URL);
 			setDefaultIfMissing(config, "dh_download_url", DEFAULT_DH_DOWNLOAD_URL);
+			setDefaultIfMissing(config, "chunky_download_url", DEFAULT_CHUNKY_DOWNLOAD_URL);
+			setDefaultIfMissing(config, "fapi_download_url", DEFAULT_FAPI_DOWNLOAD_URL);
 			setDefaultIfMissing(config, "extra_jvm_args", DEFAULT_EXTRA_JVM_ARGS);
 			setDefaultIfMissing(config, "debug_mode", DEFAULT_DEBUG_MODE);
+			setDefaultIfMissing(config, "chunky_mode", DEFAULT_CHUNKY_MODE);
 			setDefaultIfMissing(config, "timeout_scale", DEFAULT_TIMEOUT_SCALE);
 
 			config.setComment("ram_gb",
@@ -88,6 +94,20 @@ public class FileManager {
 							""", DEFAULT_DH_DOWNLOAD_URL
 					)
 			);
+			config.setComment("chunky_download_url",
+					String.format("""
+							The URL to download the Chunky mod jar from.
+							Default: %s
+							""", DEFAULT_CHUNKY_DOWNLOAD_URL
+					)
+			);
+			config.setComment("fapi_download_url",
+					String.format("""
+							The URL to download the Fabric API jar from.
+							Default: %s
+							""", DEFAULT_FAPI_DOWNLOAD_URL
+					)
+			);
 			config.setComment("extra_jvm_args",
 					String.format("""
 							Extra JVM arguments to pass to the server.
@@ -105,6 +125,14 @@ public class FileManager {
 							""", DEFAULT_DEBUG_MODE
 					)
 			);
+			config.setComment("chunky_mode",
+					String.format("""
+							Enables the Chunky mod.
+							This will use Chunky to generate the world instead of Distant Horizons.
+							Default: %s
+							""", DEFAULT_CHUNKY_MODE
+					)
+			);
 			config.setComment("timeout_scale",
 					String.format("""
 							The timeout scale to use.
@@ -120,11 +148,14 @@ public class FileManager {
 			int generationRadius = config.getInt("generation_radius");
 			String fabricDownloadUrl = config.get("fabric_download_url");
 			String dhDownloadUrl = config.get("dh_download_url");
+			String chunkyDownloadUrl = config.get("chunky_download_url");
+			String fapiDownloadUrl = config.get("fapi_download_url");
 			String extraJvmArgs = config.get("extra_jvm_args");
 			boolean debugMode = config.get("debug_mode");
+			boolean chunkyMode = config.get("chunky_mode");
 			double timeoutScale = config.get("timeout_scale");
 
-			return new BenchmarkConfig(ramGb, seeds, threadPreset, generationRadius, fabricDownloadUrl, dhDownloadUrl, extraJvmArgs, debugMode, timeoutScale);
+			return new BenchmarkConfig(ramGb, seeds, threadPreset, generationRadius, fabricDownloadUrl, dhDownloadUrl, chunkyDownloadUrl, fapiDownloadUrl, extraJvmArgs, debugMode, chunkyMode, timeoutScale);
 		}
 	}
 

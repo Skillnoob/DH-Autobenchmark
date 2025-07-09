@@ -10,6 +10,7 @@ import me.tongfei.progressbar.ProgressBar;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import me.tongfei.progressbar.ProgressBarStyle;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +31,8 @@ public class Main {
 	private static final String DATAPACK_DIR = "custom_datapacks";
 	private static final String FABRIC_JAR = "fabric-server.jar";
 	private static final String DH_JAR = "distant-horizons.jar";
+	private static final String CHUNKY_JAR = "chunky.jar";
+	private static final String FAPI_JAR = "fabric-api.jar";
 	private static final String SERVER_PROPERTIES_FILE = "server.properties";
 	private static final String EULA_FILE = "eula.txt";
 	private static final String MODS_DIR = Paths.get(SERVER_DIR, "mods").toString();
@@ -102,6 +105,10 @@ public class Main {
 			}
 
 			DownloadManager.downloadFile(benchmarkConfig.dhDownloadUrl(), MODS_DIR, DH_JAR);
+			if (benchmarkConfig.chunkyMode()) {
+				DownloadManager.downloadFile(benchmarkConfig.chunkyDownloadUrl(), MODS_DIR, CHUNKY_JAR);
+				DownloadManager.downloadFile(benchmarkConfig.fapiDownloadUrl(), MODS_DIR, FAPI_JAR);
+			}
 			System.out.println();
 
 			List<String> seeds = benchmarkConfig.seeds();
@@ -184,6 +191,96 @@ public class Main {
 		// Select the seed.
 		FileManager.updateConfigLine(Paths.get(SERVER_DIR, SERVER_PROPERTIES_FILE), "level-seed", "level-seed=" + seed);
 
+		Pattern dataExtractor = Pattern.compile("(\\d+(?:\\.\\d+)?)%");
+		AtomicLong elapsedTime = new AtomicLong(0);
+
+		if (benchmarkConfig.chunkyMode()) {
+			System.out.println("Running in Chunky mode, disabling Distant Horizons.");
+			File dhJar = Paths.get(MODS_DIR, DH_JAR).toFile();
+			File disabledDhJar = Paths.get(MODS_DIR, "distant-horizons.jar.disabled").toFile();
+			dhJar.renameTo(disabledDhJar);
+
+			System.out.print("Starting server in Chunky mode ... ");
+			if (!serverManager.startServer(cmd)) {
+				throw new IOException("Failed to start server, or server took too long to start.");
+			}
+
+			System.out.println("Done");
+			Thread.sleep(5000);
+
+			serverManager.executeCommand("chunky radius " + benchmarkConfig.generationRadius() + "c");
+			Thread.sleep(5000);
+			System.out.println("Starting Chunky pregen run " + (run + 1) + " with radius " + benchmarkConfig.generationRadius() + " for seed " + seed);
+
+			serverManager.executeCommand("chunky start");
+			AtomicLong benchmarkStartTime = new AtomicLong(0);
+			AtomicBoolean pregenComplete = new AtomicBoolean(false);
+			AtomicReference<ProgressBar> progressBar = new AtomicReference<>(null);
+
+			if (!benchmarkConfig.debugMode()) {
+				progressBar.set(new ProgressBarBuilder()
+						.setRenderer(new NoFractionProgressBarRenderer(
+								System.getProperty("os.name").toLowerCase().contains("win") ?
+										ProgressBarStyle.ASCII :
+										ProgressBarStyle.UNICODE_BLOCK,
+								"",
+								1,
+								false,
+								null,
+								ChronoUnit.SECONDS,
+								true,
+								NoFractionProgressBarRenderer::linearEta
+						))
+						.setInitialMax(100)
+						.setTaskName("Generation Progress:")
+						.build());
+			}
+
+			while (serverManager.isServerRunning() && !pregenComplete.get()) {
+				serverManager.waitForLogMessage(line -> {
+					if (line.contains("Task started")) {
+						benchmarkStartTime.set(System.nanoTime());
+						return false;
+					}
+
+					if (line.contains("Task finished")) {
+						if (benchmarkStartTime.get() != 0) {
+							elapsedTime.set(System.nanoTime() - benchmarkStartTime.get());
+						}
+						if (progressBar.get() != null) {
+							progressBar.get().stepTo(100); // Ensure we show 100% at the end
+							progressBar.get().close();
+						}
+						pregenComplete.set(true);
+						return true;
+					}
+
+					if (progressBar.get() != null && line.contains("Task running")) {
+						Matcher matcher = dataExtractor.matcher(line.replaceAll(",", "."));
+						if (matcher.find()) {
+							try {
+								double percentage = Double.parseDouble(matcher.group(1));
+								progressBar.get().stepTo(Math.round(percentage));
+							} catch (NumberFormatException ignored) {
+							}
+						}
+					}
+
+					return false;
+				});
+			}
+
+			if (pregenComplete.get()) {
+				System.out.println("Waiting 30 seconds before server shutdown...");
+				Thread.sleep(30000); // Safety, otherwise DH will complain about SQLite being closed.
+				System.out.print("Stopping server ... ");
+				serverManager.stopServer(false);
+				System.out.println("Done");
+			}
+
+			disabledDhJar.renameTo(dhJar);
+		}
+
 		System.out.print("Starting server ... ");
 		if (!serverManager.startServer(cmd)) {
 			throw new IOException("Failed to start server, or server took too long to start.");
@@ -200,11 +297,9 @@ public class Main {
 		serverManager.executeCommand("dh pregen start minecraft:overworld 0 0 " + benchmarkConfig.generationRadius());
 
 		AtomicLong benchmarkStartTime = new AtomicLong(0);
-		AtomicLong elapsedTime = new AtomicLong(0);
 		AtomicBoolean pregenComplete = new AtomicBoolean(false);
 
 		AtomicReference<ProgressBar> progressBar = new AtomicReference<>(null);
-		Pattern dataExtractor = Pattern.compile("(\\d+(?:\\.\\d+)?)%");
 
 		// Initialize the progress bar if not in debug mode
 		if (!benchmarkConfig.debugMode()) {
