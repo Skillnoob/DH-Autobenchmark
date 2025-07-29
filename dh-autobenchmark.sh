@@ -45,10 +45,12 @@ SCREEN="dh-automation-benchmark"
 WORLDFOLDER="${DIR}/server/world"
 
 ## Arrays ##
+ARRAYDEVTYPES=(ata scsi nvme sat usbcypress usbjmicron usbprolific usbsunplus sntasmedia sntjmicron sntrealtek auto)
 CPS=()
 CPS_CSV=()
 DBSIZES=()
 RUNTIMES=()
+
 
 
 ## EXIT CODES ##
@@ -703,14 +705,26 @@ collectHardwareInformation() {
   # Data preparation
   echo "Collecting CPU information..."
   CPU=$(lscpu | grep 'Model name' | cut -f 2 -d ":" | awk '{$1=$1}1')
-  # Clean up cpu naming scheme (currently only for intel)
+    if test -z "${CPU}"
+    then
+      CPU="UNKNOWN"
+    fi
+  # Clean up cpu naming scheme
   CPU=$(echo "${CPU}" | sed -E 's/\b[0-9]+(st|nd|rd|th) Gen[[:space:]]+//g' | sed 's/(R)//g; s/(TM)//g' | 
         sed -E 's/[[:space:]]*@[[:space:]]*[0-9]+(\.[0-9]+)?[[:space:]]*GHz//g' | sed 's/ with Radeon Graphics//g' | sed 's/ CPU//g' | 
         sed -E 's/[[:space:]]+[0-9]+-Core[[:space:]]+Processor//g' | sed 's/[[:space:]]\{2,\}/ /g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
   
 
   CPUCORES=$(lscpu | awk '/^Socket\(s\):/ {sockets=$2} /^Core\(s\) per socket:/ {cores=$4} END {print sockets * cores}')
+    if test -z "${CPUCORES}"
+    then
+      CPUCORES="x"
+    fi
   CPUTHREADS=$(nproc --all)
+    if test -z "${CPUTHREADS}"
+    then
+      CPUTHREADS="x"
+    fi
   echo "CPU: ${CPU} ${CPUCORES}C/${CPUTHREADS}T"
   # Add CPU information to HARDWAREINFORMATION array
   HARDWAREINFORMATION+=("${CPU} ${CPUCORES}C/${CPUTHREADS}T,")
@@ -721,57 +735,111 @@ collectHardwareInformation() {
     echo 'Please make sure that the package "dmidecode" is installed with your linux system otherwise the following data collection will not work.'
     sleep 3s
     # Collect RAM information
-    if test ${debug_mode} == "true" 2>/dev/null
-    then
-      echo "Collecting RAM information..."
-      sleep 1s
-    fi
+      if test ${debug_mode} == "true" 2>/dev/null
+      then
+        echo "Collecting RAM information..."
+        sleep 1s
+      fi
 
+      
       RAMSIZEONCE=$(sudo dmidecode -t memory | grep -w "Size" | grep -w "GB" | cut -d " " -f 2 | head -n 1)
       RAMSTICKSDOUBLE=$(sudo dmidecode -t memory | grep -w "Size" | grep -w "GB" | wc -l)
-      RAMSTICKS=$((RAMSTICKSDOUBLE / 2))
-    if RAMSIZETOTAL=$((RAMSIZEONCE * RAMSTICKS)) \
-      && RAMTYPE=$(sudo dmidecode -t memory | grep "DDR" | cut -d " " -f 2 | head -n 1) \
-      && RAMSPEED=$(sudo dmidecode -t memory | grep "Configured Memory Speed" | cut -d " " -f 4,5 | head -n 1) 
-    then
+      if test ${RAMSTICKSDOUBLE} -eq 1
+      then
+        RAMSTICKS=${RAMSTICKSDOUBLE}
+      else
+        RAMSTICKS=$((RAMSTICKSDOUBLE / 2))
+      fi
+
+      # Get/calculate each variable and set to default value if not successful
+      RAMSIZETOTAL=$((RAMSIZEONCE * RAMSTICKS))
+      if test -z "${RAMSIZETOTAL}"
+      then
+        echo "RAM Size could not be collected!"
+        RAMSIZETOTAL="x"
+      fi
+
+      RAMTYPE=$(sudo dmidecode -t memory | grep "DDR" | cut -d " " -f 2 | head -n 1)
+      if test -z "${RAMTYPE}"
+      then
+        echo "RAM Type could not be determined!"
+        RAMTYPE="Unknown"
+      fi
+
+      RAMSPEED=$(sudo dmidecode -t memory | grep "Configured Memory Speed" | cut -d " " -f 4,5 | head -n 1)
+      if test -z "${RAMSPEED}"
+      then
+        echo "RAM Speed could not be determined!"
+        RAMSPEED="xxxxMT/s"
+      fi
+
       echo "RAM: ${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED}"
       # Add RAM information to HARDWAREINFORMATION array
       HARDWAREINFORMATION+=("${RAMSIZETOTAL}GB ${RAMTYPE} ${RAMSPEED},")
-    else
-      echo "RAM information could not be collected!"
-      RAMSIZETOTAL="xGB"
-      RAMTYPE="Unknown"
-      RAMSPEED="xxxxMT/s"
-    fi
 
     # Collect disk information
-    if test ${debug_mode} == "true" 2>/dev/null
-    then
-      echo "Collecting Disk information..."
-      sleep 1s
-    fi
+      if test ${debug_mode} == "true" 2>/dev/null
+      then
+        echo "Collecting Disk information..."
+        sleep 1s
+      fi
 
-    if commandAvailable findmnt
-    then
-      DISKMOUNT=$(findmnt -T ${DIR} -n -o SOURCE)
-    else
-      DISKPARTITION=$(df ${DIR} | grep dev | cut -d " " -f 1 | cut -d "/" -f 3)
-      DISKID=$(ls -l /dev/disk/by-id | grep ${DISKPARTITION} | cut -d " " -f 9 | head -n 1 | cut -d "-" -f 1,2)
-      DISKMOUNT=$(ls -l /dev/disk/by-id | grep ${DISKID} | head -n 1 | cut -d ">" -f 2 | cut -d "/" -f 3)
-      DISKMOUNT="/dev/"${DISKMOUNT}
-    fi
+      if commandAvailable findmnt
+      then
+        DISKMOUNT=$(findmnt -T ${DIR} -n -o SOURCE)
+      else
+        DISKPARTITION=$(df ${DIR} | grep dev | cut -d " " -f 1 | cut -d "/" -f 3)
+        DISKID=$(ls -l /dev/disk/by-id | grep ${DISKPARTITION} | cut -d " " -f 9 | head -n 1 | cut -d "-" -f 1,2)
+        DISKMOUNT=$(ls -l /dev/disk/by-id | grep ${DISKID} | head -n 1 | cut -d ">" -f 2 | cut -d "/" -f 3)
+        DISKMOUNT="/dev/"${DISKMOUNT}
+      fi
 
-    if DISKMODEL=$(sudo smartctl -a ${DISKMOUNT} | grep "Model Number" | tr -s " " | cut -d ":" -f 2 | tr -d " ") \
-      && DISKSIZE=$(sudo smartctl -a ${DISKMOUNT} | grep "Capacity" | head -n 1 | cut -d "[" -f 2 | cut -d " " -f 1)
-    then
-      echo "DISK: ${DISKMODEL} ${DISKSIZE}GB"
-      # Add disk information to HARDWAREINFORMATION array
-      HARDWAREINFORMATION+=("${DISKMODEL} ${DISKSIZE}GB")
-    else
-      echo "Disk information could not be collected!"
-      DISKMODEL="Unknown"
-      DISKSIZE="xGB"
-    fi
+      # Get Disk Model
+      for ARGDEVTYPE in ${ARRAYDEVTYPES[@]}
+      do
+        if test -z "${DISKMODEL}"
+        then
+          DISKMODEL=$(sudo smartctl -d ${ARGDEVTYPE} -a ${DISKMOUNT} | grep -w "Model" | tr -s " " | cut -d ":" -f 2 | tr -d " ")
+        else
+          if test ${debug_mode} == "true" 2>/dev/null
+          then
+            echo "Found Device Type: ${DISKMODEL} with argument: ${ARGDEVTYPE}"
+            sleep 1s
+          fi
+          break
+        fi
+      done
+
+      # Get Disk Capacity
+      for ARGDEVTYPE in ${ARRAYDEVTYPES[@]}
+      do
+        if test -z "${DISKSIZE}"
+        then
+          DISKSIZE=$(sudo smartctl -d ${ARGDEVTYPE} -a ${DISKMOUNT} | grep "Capacity" | head -n 1 | cut -d "[" -f 2 | cut -d " " -f 1)
+        else
+          if test ${debug_mode} == "true" 2>/dev/null
+          then
+            echo "Found Capacity: ${DISKSIZE} with argument: ${ARGDEVTYPE}"
+            sleep 1s
+          fi
+          break
+        fi
+      done
+
+    # Do seperate check for both variables
+      if test -z "${DISKMODEL}"
+      then  
+        DISKMODEL="UNKNOWN"
+      fi
+
+      if test -z "${DISKSIZE}"
+      then
+        DISKSIZE="UNKNOWN"
+      fi
+
+    echo "DISK: ${DISKMODEL} ${DISKSIZE}GB"
+    # Add disk information to HARDWAREINFORMATION array
+    HARDWAREINFORMATION+=("${DISKMODEL} ${DISKSIZE}GB")
 
     HARDWAREINFORMATION=($(echo ${HARDWAREINFORMATION[@]} | tr " " "_" | tr "," " "))
     HARDWAREINFORMATIONCSV=${HARDWAREINFORMATION[@]}
