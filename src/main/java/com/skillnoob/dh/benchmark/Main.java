@@ -132,7 +132,11 @@ public class Main {
 							FileManager.clearBenchmarkProgress(PROGRESS_FILE);
 						}
 					}
-				}
+				} else {
+                    System.out.println("All seeds have already been benchmarked or there are more completed seeds than current seeds. Exiting.");
+                    FileManager.clearBenchmarkProgress(PROGRESS_FILE);
+                    return;
+                }
 			}
 
 			// Run the benchmark for every non-completed seed
