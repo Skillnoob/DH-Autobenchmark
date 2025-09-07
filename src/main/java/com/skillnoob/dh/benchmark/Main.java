@@ -81,18 +81,21 @@ public class Main {
 
 			if (!Files.exists(Paths.get(SERVER_DIR, FABRIC_JAR))) {
 				try (Scanner scanner = new Scanner(System.in)) {
-					System.out.print("Do you agree to Mojang's EULA? (https://aka.ms/MinecraftEULA) (Yes/No): ");
+					System.out.print("Do you agree to Mojang's EULA? (https://aka.ms/MinecraftEULA) (y/N): ");
 					String eulaAnswer = scanner.nextLine();
 
-					if (eulaAnswer.equalsIgnoreCase("yes")) {
+					if (eulaAnswer.equalsIgnoreCase("y")) {
 						System.out.println("EULA accepted. Downloading the server and accepting the EULA.");
 						if (DownloadManager.downloadFile(benchmarkConfig.fabricDownloadUrl(), SERVER_DIR, FABRIC_JAR)) {
 							System.out.println("Fabric downloaded successfully.");
 							System.out.println("Starting server to generate eula.txt and server.properties...");
 							serverManager.startServer(serverCmd);
 
+                            Thread.sleep(5000);
 							FileManager.updateConfigLine(Paths.get(SERVER_DIR, EULA_FILE), "eula", "eula=true");
-							FileManager.updateConfigLine(Paths.get(SERVER_DIR, SERVER_PROPERTIES_FILE), "white-list", "white-list=true");
+                            Path propertiesPath = Paths.get(SERVER_DIR, SERVER_PROPERTIES_FILE);
+                            FileManager.updateConfigLine(propertiesPath, "white-list", "white-list=true");
+                            FileManager.updateConfigLine(propertiesPath, "server-port", "server-port=25564");
 						}
 					} else {
 						System.err.println("You must agree to Mojang's EULA to run the server. Exiting.");
