@@ -120,14 +120,15 @@ public class Main {
 				if (startSeedIndex < seeds.size()) {
 					try (Scanner scanner = new Scanner(System.in)) {
 						System.out.println("Found previous benchmark progress. " + completedSeeds.size() + " out of " + seeds.size() + " seeds were completed.");
-						System.out.print("Would you like to resume from seed " + seeds.get(startSeedIndex) + "? (Yes/No): ");
+						System.out.print("Would you like to resume from seed " + seeds.get(startSeedIndex) + "? (y/N): ");
 						String answer = scanner.nextLine();
 
-						if (answer.equalsIgnoreCase("yes")) {
+						if (answer.equalsIgnoreCase("y")) {
 							System.out.println("Resuming benchmark from seed " + seeds.get(startSeedIndex));
 							benchmarkResults = FileManager.loadSeedResults(PROGRESS_FILE, startSeedIndex);
 						} else {
 							System.out.println("Starting benchmark from the beginning.");
+                            startSeedIndex = 0;
 							FileManager.clearBenchmarkProgress(PROGRESS_FILE);
 						}
 					}
