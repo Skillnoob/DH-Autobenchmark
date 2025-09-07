@@ -24,8 +24,8 @@ public class FileManager {
 	private static final List<String> DEFAULT_SEEDS = List.of("5057296280818819649", "2412466893128258733", "3777092783861568240", "-8505774097130463405", "4753729061374190018");
 	private static final String DEFAULT_THREAD_PRESET = "I_PAID_FOR_THE_WHOLE_CPU";
 	private static final int DEFAULT_GENERATION_RADIUS = 256;
-	private static final String DEFAULT_FABRIC_DOWNLOAD_URL = "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.14/1.0.3/server/jar";
-	private static final String DEFAULT_DH_DOWNLOAD_URL = "https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar";
+	private static final String DEFAULT_FABRIC_DOWNLOAD_URL = "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.17.2/1.1.0/server/jar";
+	private static final String DEFAULT_DH_DOWNLOAD_URL = "https://cdn.modrinth.com/data/uCdwusMi/versions/P14vqscU/DistantHorizons-2.3.4-b-1.21.1-fabric-neoforge.jar";
 	private static final String DEFAULT_EXTRA_JVM_ARGS = "";
 	private static final boolean DEFAULT_DEBUG_MODE = false;
 	private static final double DEFAULT_TIMEOUT_SCALE = 1.0;
