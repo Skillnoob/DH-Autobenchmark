@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Source: https://stackoverflow.com/questions/59895/how-do-i-get-the-directory-where-a-bash-script-is-located-from-within-the-script
 # gets the full directory name where the script is executed from no matter where it is called from
@@ -9,6 +9,17 @@ while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symli
   [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
 DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+
+checkCTRLC() {
+  if test ${QUIT} == "Yes"
+  then
+    echo -e "\nCTRL+C detected, shutting down Server and exiting script!\n" >&2
+    echo "If you want to exit the script immediatly, press CTRL+Z, you will need to kill the server yourself though." >&2
+    stopServer
+    echo "Exiting script"
+    exit 100
+  fi
+}
 
 # Check if CTRL+C has been pressed and if yes, set variable 'QUIT' to 'Yes'
 trap 'QUIT=Yes' INT
@@ -67,20 +78,12 @@ RUNTIMES=()
 # 11 = Config file could not be created
 # 12 = Invalid Answer in configCheck
 # 13 = Not able to use any editor to edit the config file
+# 14 = Clean progress file could not be created
 # 100 = CTRL+C detected, shut down server and exited script
 
 
 
-checkCTRLC() {
-  if test ${QUIT} == "Yes"
-  then
-    echo -e "\nCTRL+C detected, shutting down Server and exiting script!\n" >&2
-    echo "If you want to exit the script immediatly, press CTRL+Z, you will need to kill the server yourself though." >&2
-    stopServer
-    echo "Exiting script"
-    exit 100
-  fi
-}
+
 
 
 # commandAvailable(command)
@@ -194,9 +197,9 @@ thread_preset="I_PAID_FOR_THE_WHOLE_CPU"
 # Default: 256
 generation_radius="256"
 # The URL to download the Fabric server jar from.
-fabric_download_url="https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.12/1.0.3/server/jar" 
+fabric_download_url="https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.17.2/1.1.0/server/jar" 
 # The URL to download the Distant Horizons mod jar from. 
-dh_download_url="https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/DistantHorizons-neoforge-fabric-2.3.2-b-1.21.1.jar"' >${CONFIG}
+dh_download_url="https://cdn.modrinth.com/data/uCdwusMi/versions/P14vqscU/DistantHorizons-2.3.4-b-1.21.1-fabric-neoforge.jar"' >${CONFIG}
 }
 
 
@@ -204,48 +207,125 @@ dh_download_url="https://cdn.modrinth.com/data/uCdwusMi/versions/jkSxZOJh/Distan
 configCheck() {
   if test -s ${DIR}/${CONFIG} 2>/dev/null
   then
+    if test ${PROGRESS} == "true"
+    then
+      if test ${debug_mode} == "true" 2>/dev/null
+      then
+        echo "Config file exists and progress is available, using available config"
+      fi
+    else
       # Config file exists
       read -r -p "Do you want to edit the current config, keep the current config or do a standardized run? (edit/keep/standard): " CONFIGANSWER
 
       case ${CONFIGANSWER} in
-      Edit | edit)
-        if test ${debug_mode} == "true" 2>/dev/null
-        then
-          echo "Using locally set editor" 
-          sleep 1s
-        fi
-        if "${EDITOR:-vi}" ${CONFIG}
-        then
-          echo "Using edited config for the benchmark"
-        else
+        Edit | edit)
           if test ${debug_mode} == "true" 2>/dev/null
           then
-            echo "Using nano as the editor" 
+            echo "Using locally set editor" 
             sleep 1s
           fi
-          if nano ${CONFIG}
+          if "${EDITOR:-nano}" ${CONFIG}
           then
             echo "Using edited config for the benchmark"
           else
-            echo "Could not use any editor for the config"
-            echo "Exiting script.."
-            exit 13
+            if test ${debug_mode} == "true" 2>/dev/null
+            then
+              echo "Using nano as the editor" 
+              sleep 1s
+            fi
+            if nano ${CONFIG}
+            then
+              echo "Using edited config for the benchmark"
+            else
+              echo "Could not use any editor for the config"
+              echo "Exiting script.."
+              exit 13
+            fi
           fi
-        fi
-      ;;
-      Keep | keep)
-        echo "Using current available config"
-      ;;
-      Standard | standard)
-        echo "Using standardized config!"
-        createConfig
-      ;;
-      *)
-        echo "Invalid Answer: ${CONFIGANSWER}"
-        exit 12
-      ;;
-    esac
+        ;;
+        Keep | keep)
+          echo "Using current available config"
+        ;;
+        Standard | standard)
+          echo "Using standardized config!"
+          createConfig
+        ;;
+        *)
+          echo "Invalid Answer: ${CONFIGANSWER}"
+          exit 12
+        ;;
+      esac
+    fi
   else
+    if test ${PROGRESS} == "true"
+    then
+      read -r -p "There is progress but no config file, would you like to redo the config or start a new run? (r/n) " PROGRESSCONFIGANSWER
+
+      case ${PROGRESSCONFIGANSWER} in
+        R | r)
+          if createConfig
+          then
+            # Debug output
+            if test ${debug_mode} == "true" 2>/dev/null
+            then
+              echo "Config file created" 
+            fi
+            
+            # Debug output
+            if test ${debug_mode} == "true" 2>/dev/null
+            then
+              echo "Using locally set editor" 
+              sleep 1s
+            fi
+
+            if "${EDITOR:-vi}" ${CONFIG}
+            then
+              echo "Using edited config for the benchmark"
+            else
+              if test ${debug_mode} == "true" 2>/dev/null
+              then
+                echo "Using nano as the editor" 
+                sleep 1s
+              fi
+              if nano ${CONFIG}
+              then
+                echo "Using edited config for the benchmark"
+              else
+                echo "Could not use any editor for the config"
+                echo "Exiting script.."
+                exit 13
+              fi
+            fi
+          else
+            echo "Config could not be created!"
+            exit 11
+          fi
+        ;;
+        N | n)
+          if createConfig
+          then
+            # Debug output
+            if test ${debug_mode} == "true" 2>/dev/null
+            then
+              echo "Config file created"
+            fi
+          else
+            echo "Config could not be created!"
+            exit 11
+          fi
+
+          if createEmptyProgressFile
+          then
+            # Debug output
+            if test ${debug_mode} == "true" 2>/dev/null
+            then
+              echo "Created clean progress file" 
+            fi
+          fi
+          RUN="1"
+        ;;
+      esac
+    else
       if test ${debug_mode} == "true" 2>/dev/null
       then
         echo "Config file does not exist, creating fresh config file" 
@@ -261,21 +341,38 @@ configCheck() {
         fi
         
         # User input
-        read -r -p "Do you want to edit the config and do a custom run? (Yes/No): " CONFIGANSWER
+        read -r -p "Do you want to edit the config and do a custom run? (Y/N): " CONFIGANSWER
 
         # Reacting to user input
-        if test ${CONFIGANSWER} == "Yes"
+        if test ${CONFIGANSWER} == "Y" || test ${CONFIGANSWER} == "y"
         then 
-          nano ${DIR}/${CONFIG}
-          echo "Using edited config file!"
+          if "${EDITOR:-vi}" ${CONFIG}
+            then
+              echo "Using edited config for the benchmark"
+            else
+              if test ${debug_mode} == "true" 2>/dev/null
+              then
+                echo "Using nano as the editor" 
+                sleep 1s
+              fi
+
+              if nano ${CONFIG}
+              then
+                echo "Using edited config for the benchmark"
+              else
+                echo "Could not use any editor for the config"
+                echo "Exiting script.."
+                exit 13
+              fi
+            fi
         else
           echo "Using standardized benchmark config!"
-          createConfig
         fi
       else
         echo "Config could not be created!"
         exit 11
       fi
+    fi
 fi
 }
 
@@ -310,9 +407,9 @@ enable-command-block=false
 enable-jmx-monitoring=false
 enable-query=false
 enable-rcon=false
-enable-status=true
+enable-status=false
 enforce-secure-profile=true
-enforce-whitelist=false
+enforce-whitelist=true
 entity-broadcast-range-percentage=100
 force-gamemode=false
 function-permission-level=2
@@ -494,17 +591,17 @@ setThreadPreset() {
   if screen -S $SCREEN -X stuff "dh config common.threadPreset ${thread_preset}"^M
   then
     # Wait for the thread preset to be active
-    while ! grep -w "preset active: $thread_preset" <${LATESTLOG} >/dev/null
-  do
-    sleep 1s
-  done
+    while ! tail -n 5 <${LATESTLOG} | grep -w "preset active: ${thread_preset}" >/dev/null
+    do
+      sleep 1s
+    done
     echo  "Set Thread Preset to ${thread_preset}" 
   else
     echo "Could not set common.threadPreset to ${thread_preset}"
     exit 6
   fi
-  # Wait another two seconds to prevent the pregen of instantly being queued when the threadPreset is being set
-  sleep 2s
+  # Wait another five seconds to prevent the pregen of instantly being queued when the threadPreset is being set
+  sleep 5s
 }
 
 
@@ -614,7 +711,7 @@ removeFileIfExists() {
 
 # 1. Create ProgressBar function
 # 1.1 Input is currentState($1) and totalState($2)
-function ProgressBar {
+ProgressBar() {
   # Process data
   if test ${1} = "0"
   then
@@ -1071,7 +1168,16 @@ createServerFolderIfNotExist(){
 
 
 createEmptyProgressFile(){
-  echo -ne "CPU,RAM,DRIVE\n">${PROGRESSFILE}
+  if echo -ne "CPU,RAM,DRIVE\n">${PROGRESSFILE}
+  then
+    if test ${debug_mode} == "true" 2>/dev/null
+    then
+      echo "Created clean progress file"
+    fi
+  else
+    echo "Could not create progress file, please report this bug to the author!"
+    exit 14
+  fi
 }
 
 
@@ -1118,7 +1224,7 @@ checkProgress(){
     if test ${PROGRESSLINES} -gt 1
     then
       PROGRESS="true"
-      if test ${PROGRESSLINES} -ge 5
+      if test ${PROGRESSLINES} -gt 5
       then
         echo "Runs already completed, converting to csv format"
         readProgressFileAndAppendToArrays
@@ -1132,7 +1238,7 @@ checkProgress(){
 
       read -r -p "There is already known progress for $((PROGRESSLINES-1)) run(s), would you like to continue on run ${PROGRESSLINES}? (Yes/No): " PROGRESSANSWER
       
-      if test ${PROGRESSANSWER} == "Yes"
+      if test ${PROGRESSANSWER} == "Yes" || test ${PROGRESSANSWER} == "yes"
       then
         readProgressFileAndAppendToArrays
 
@@ -1141,6 +1247,8 @@ checkProgress(){
       else
         echo "Starting the benchmark from run 1 in 20 seconds!"
         sleep 20s
+        removeFileIfExists ${DIR}/${CONFIG}
+        removeFileIfExists ${PROGRESSFILE}
         createEmptyProgressFile
       fi
     else
@@ -1183,10 +1291,13 @@ while getopts ":h" OPTION
     esac
   done
 
+# Check for older benchmark progress
+checkProgress
+
 # Check if the folder "server" exists, otherwise create it
 createServerFolderIfNotExist
 
-# Check for dh-automation.config
+# Check for dh-benchmark.toml
 configCheck
 
 # Get variables from config file
@@ -1199,9 +1310,6 @@ downloadFabricAndDistantHorizons
 # Check if eula exists and if not, ask the user to accept it
 eulaCheck
 
-# Check for older benchmark progress
-checkProgress
-
 # Five runs (one for every seed)
 while ! test ${RUN} -ge 6
 do
@@ -1213,6 +1321,20 @@ do
   # Add datapacks if put into folder "custom_datapacks"
   getDatapacksIfExist
   
+  # Display configuration to user only on first run
+  if test ${RUN} -eq "1"
+  then
+    echo "Loaded configuration:"
+    echo "- RAM (GB): ${ram_gb}"
+    echo "- Seeds: ${seeds[@]}"
+    echo "- Thread Preset: ${thread_preset}"
+    echo "- Benchmark Radius: ${generation_radius}"
+    echo "- Fabric Download URL: ${fabric_download_url}"
+    echo "- Distant Horizons Download URL: ${dh_download_url}" 
+    echo "- Extra JVM Args: ${extra_jvm_args}"
+    echo "- Debug Mode: ${debug_mode}"
+  fi
+
   startServer
 
   # Set thread preset to the preset set in the config
