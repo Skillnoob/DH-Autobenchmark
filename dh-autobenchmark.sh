@@ -278,7 +278,7 @@ configCheck() {
               sleep 1s
             fi
 
-            if "${EDITOR:-vi}" ${CONFIG}
+            if "${EDITOR:-nano}" ${CONFIG}
             then
               echo "Using edited config for the benchmark"
             else
@@ -346,7 +346,7 @@ configCheck() {
         # Reacting to user input
         if test ${CONFIGANSWER} == "Y" || test ${CONFIGANSWER} == "y"
         then 
-          if "${EDITOR:-vi}" ${CONFIG}
+          if "${EDITOR:-nano}" ${CONFIG}
             then
               echo "Using edited config for the benchmark"
             else
